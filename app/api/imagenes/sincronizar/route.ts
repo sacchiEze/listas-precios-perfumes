@@ -26,10 +26,10 @@ type ProductoPendiente = Pick<
 /**
  * POST /api/imagenes/sincronizar
  *
- * Busca productos en `catalogo_productos` cuya `imagen_url` sea NULL (incluyendo
- * perfumes, kits, body splashes, cremas, desodorantes y aceites), consulta automáticamente
- * la imagen del producto en lotes concurrentes y persiste la URL encontrada respetando
- * cualquier imagen que ya hubiera sido cargada o editada manualmente.
+ * Busca productos en `catalogo_productos` cuya `imagen_url` sea NULL (excluyendo
+ * los desodorantes, que utilizan únicamente el ícono de botella de desodorante),
+ * consulta automáticamente la imagen del producto en lotes concurrentes y persiste
+ * la URL encontrada respetando cualquier imagen que ya hubiera sido cargada o editada manualmente.
  */
 export async function POST(request: Request) {
   if (!estaSupabaseConfigurado()) {
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
     .from('catalogo_productos')
     .select('id, marca, nombre, tipo, imagen_url')
     .is('imagen_url', null)
+    .neq('tipo', 'Desodorante')
     .order('id', { ascending: true })
     .limit(limiteSolicitado)
 

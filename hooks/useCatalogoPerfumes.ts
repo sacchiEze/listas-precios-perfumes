@@ -327,6 +327,7 @@ export function useCatalogoPerfumes(
       if (fila.tipo) conjuntoTipos.add(fila.tipo)
 
       let producto = mapaProductos.get(fila.producto_id)
+      const esDesodorante = fila.tipo === 'Desodorante'
       if (!producto) {
         producto = {
           producto_id: fila.producto_id,
@@ -337,7 +338,7 @@ export function useCatalogoPerfumes(
           concentracion: fila.concentracion,
           ml: fila.ml,
           genero: fila.genero,
-          imagen_url: fila.imagen_url,
+          imagen_url: esDesodorante ? null : fila.imagen_url,
           ofertas: {},
           mejorPrecioARS: null,
           mejorPrecioUSD: null,
@@ -365,7 +366,7 @@ export function useCatalogoPerfumes(
         }
         mapaProductos.set(fila.producto_id, producto)
       } else {
-        if (!producto.imagen_url && fila.imagen_url) {
+        if (!esDesodorante && !producto.imagen_url && fila.imagen_url) {
           producto.imagen_url = fila.imagen_url
         }
         if (

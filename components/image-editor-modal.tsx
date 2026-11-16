@@ -1029,10 +1029,112 @@ export function ModalEditorImagenPerfume({
 }
 
 /**
+ * Ícono vectorial exclusivo para productos de tipo `Desodorante`.
+ * Representa un envase aerosol con válvula atomizadora y bruma de spray
+ * para diferenciarlos visualmente de los frascos de perfume e identificarlos solo por su nombre.
+ */
+export function IconoBotellaDesodorante({
+  className = 'size-11',
+  title = 'Desodorante en spray',
+}: {
+  className?: string
+  title?: string
+}) {
+  return (
+    <div
+      role="img"
+      aria-label={title}
+      title={title}
+      className={`flex items-center justify-center overflow-hidden rounded-lg border border-orange-300/90 bg-orange-50 text-orange-700 select-none ${className}`}
+    >
+      <svg
+        viewBox="0 0 64 64"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="size-[78%] shrink-0"
+        aria-hidden="true"
+      >
+        {/* Bruma de spray saliendo hacia la derecha */}
+        <path
+          d="M41 11L49 7M42 15H52M41 19L49 23"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
+        <circle cx="55" cy="6" r="1.5" fill="currentColor" />
+        <circle cx="57" cy="15" r="1.5" fill="currentColor" />
+        <circle cx="55" cy="24" r="1.5" fill="currentColor" />
+
+        {/* Cabezal / válvula pulsadora del aerosol */}
+        <rect
+          x="23"
+          y="9"
+          width="12"
+          height="7"
+          rx="2"
+          fill="currentColor"
+          fillOpacity="0.18"
+          stroke="currentColor"
+          strokeWidth="2.4"
+        />
+        <circle cx="32.5" cy="12.5" r="1.3" fill="currentColor" />
+
+        {/* Cuello / hombro curvo del aerosol */}
+        <path
+          d="M19 24C19 19.2 22.8 16 27.5 16H30.5C35.2 16 39 19.2 39 24V26H19V24Z"
+          fill="currentColor"
+          fillOpacity="0.14"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinejoin="round"
+        />
+
+        {/* Cuerpo cilíndrico alto de la lata de desodorante */}
+        <rect
+          x="19"
+          y="25"
+          width="20"
+          height="32"
+          rx="3.5"
+          fill="#ffffff"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        />
+
+        {/* Franja central con etiqueta DEO */}
+        <rect
+          x="20.2"
+          y="33"
+          width="17.6"
+          height="13"
+          fill="currentColor"
+          fillOpacity="0.15"
+        />
+        <text
+          x="29"
+          y="42"
+          textAnchor="middle"
+          fill="currentColor"
+          fontSize="7.5"
+          fontWeight="800"
+          letterSpacing="0.6"
+          fontFamily="Arial, Helvetica, sans-serif"
+        >
+          DEO
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+/**
  * Miniatura de perfume con menú desplegable al hacer click que permite:
  * 1. Subir una imagen en cualquier formato desde el dispositivo (y recortarla en 1:1).
  * 2. Recortar y optimizar visualmente la imagen actual en 1:1.
  * 3. Ingresar o cambiar el link (URL) de la imagen.
+ *
+ * Para los productos de tipo `Desodorante`, muestra siempre el ícono de botella de desodorante
+ * sin imagen fotográfica, evitando confusiones con los frascos de perfume.
  */
 export function MiniaturaPerfumeEditable({
   producto,
@@ -1108,6 +1210,15 @@ export function MiniaturaPerfumeEditable({
       window.removeEventListener('resize', cerrarAlScrollear)
     }
   }, [menuAbierto])
+
+  if (producto.tipo === 'Desodorante') {
+    return (
+      <IconoBotellaDesodorante
+        className={`shrink-0 ${tamanoClase}`}
+        title={`Desodorante · ${producto.marca} ${producto.nombre}`}
+      />
+    )
+  }
 
   return (
     <div ref={contenedorRef} className={`relative shrink-0 ${tamanoClase}`}>

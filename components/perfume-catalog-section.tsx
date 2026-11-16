@@ -503,7 +503,7 @@ export function CatalogSection({
 
       {/* Píldoras rápidas de Inteligencia de Precios, Watchlist y Reposición */}
       <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
-        <span className="mr-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <span className="mr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           Inteligencia
         </span>
         {pildorasInteligencia.map((pildora) => {
@@ -521,7 +521,7 @@ export function CatalogSection({
                       : pildora.id,
                 }))
               }
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
                 activo
                   ? 'border-violet-300 bg-[#34294d] text-white'
                   : pildora.destacado
@@ -532,7 +532,7 @@ export function CatalogSection({
               <span>{pildora.etiqueta}</span>
               {pildora.count !== undefined && (
                 <span
-                  className={`rounded-full px-1.5 py-0.2 text-[9px] font-semibold ${
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
                     activo
                       ? 'bg-white/20 text-white'
                       : pildora.destacado
@@ -551,7 +551,7 @@ export function CatalogSection({
           <button
             type="button"
             onClick={onAgregarFaltantesAlCarrito}
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-3 py-1 text-[10px] font-semibold text-violet-700 transition hover:bg-violet-100"
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
           >
             <ShoppingBag size={11} />
             Agregar faltantes al carrito
@@ -563,7 +563,7 @@ export function CatalogSection({
         <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3.5 sm:px-5">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Género
               </span>
               {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
@@ -573,7 +573,7 @@ export function CatalogSection({
                   onClick={() =>
                     setFiltros((prev) => ({ ...prev, genero: valor }))
                   }
-                  className={`rounded-md px-2.5 py-1.5 text-[10px] font-medium ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                     filtros.genero === valor
                       ? 'bg-[#34294d] text-white'
                       : 'bg-white text-slate-500 ring-1 ring-slate-200'
@@ -585,7 +585,7 @@ export function CatalogSection({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Tipo
               </span>
               <select
@@ -598,7 +598,7 @@ export function CatalogSection({
                     tiposSeleccionados: valor === 'TODOS' ? [] : [valor],
                   }))
                 }}
-                className="h-7 rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 outline-none"
+                className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
               >
                 <option value="TODOS">Todos</option>
                 {(tiposDisponibles.length > 0
@@ -613,7 +613,7 @@ export function CatalogSection({
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Precio ({monedaVisualizacion})
               </span>
               <input
@@ -623,7 +623,7 @@ export function CatalogSection({
                 value={precioMinInput}
                 onChange={(event) => setPrecioMinInput(event.target.value)}
                 placeholder="Mín"
-                className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-700 outline-none"
+                className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
               />
               <span className="text-[10px] text-slate-400">-</span>
               <input
@@ -633,11 +633,11 @@ export function CatalogSection({
                 value={precioMaxInput}
                 onChange={(event) => setPrecioMaxInput(event.target.value)}
                 placeholder="Máx"
-                className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-700 outline-none"
+                className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
               />
             </div>
 
-            <label className="ml-auto flex cursor-pointer items-center gap-2 text-[11px] text-slate-600">
+            <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-slate-600">
               <input
                 type="checkbox"
                 checked={filtros.soloEnStock}
@@ -655,7 +655,7 @@ export function CatalogSection({
             <button
               type="button"
               onClick={onLimpiarFiltros}
-              className="flex items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-slate-700"
+              className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
             >
               <X size={12} />
               Limpiar
@@ -664,7 +664,7 @@ export function CatalogSection({
 
           {marcasDisponibles.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-200/70 pt-2.5">
-              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Marcas
               </span>
               <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
@@ -673,7 +673,7 @@ export function CatalogSection({
                   onClick={() =>
                     setFiltros((prev) => ({ ...prev, marcasSeleccionadas: [] }))
                   }
-                  className={`rounded-md px-2 py-1 text-[10px] font-medium ${
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${
                     filtros.marcasSeleccionadas.length === 0
                       ? 'bg-[#34294d] text-white'
                       : 'bg-white text-slate-500 ring-1 ring-slate-200'
@@ -689,7 +689,7 @@ export function CatalogSection({
                       type="button"
                       key={marca}
                       onClick={() => alternarMarcaFiltro(marca)}
-                      className={`rounded-md px-2 py-1 text-[10px] font-medium ${
+                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${
                         seleccionada
                           ? 'bg-[#34294d] text-white'
                           : 'bg-white text-slate-500 ring-1 ring-slate-200'
@@ -715,7 +715,7 @@ export function CatalogSection({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
-                <tr className="bg-slate-50/70 text-[10px] font-semibold uppercase tracking-[.08em] text-slate-400">
+                <tr className="bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                   <th className="px-4 py-3 sm:px-5">Tipo</th>
                   <th className="px-4 py-3 sm:px-5">Producto</th>
                   {displayedSuppliers.map((nombre) => (
@@ -805,17 +805,18 @@ export function CatalogSection({
                     >
                       <td className="whitespace-nowrap px-4 py-3 sm:px-5">
                         <span
-                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${estiloTipo.badgeClass}`}
+                          className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-medium ${estiloTipo.badgeClass}`}
                         >
                           {item.tipo}
                         </span>
                       </td>
 
-                      <td className={`px-4 py-3 sm:px-5 ${estiloTipo.cellClass}`}>
-                        <div className="flex min-w-[220px] items-center gap-3">
+                      <td className={`px-4 py-1.5 sm:px-5 ${estiloTipo.cellClass}`}>
+                        <div className="flex min-w-[245px] items-center gap-3">
                           <MiniaturaPerfumeEditable
                             producto={item}
                             onAbrirEditor={onEditImage}
+                            tamanoClase="size-[72px]"
                           />
 
                           <span className="min-w-0 flex-1">
@@ -824,17 +825,17 @@ export function CatalogSection({
                                 type="button"
                                 onClick={() => onHistory(item)}
                                 title={`Abrir ficha, precios e historial de ${item.marca} ${item.nombre}`}
-                                className="truncate text-left text-[11px] font-semibold text-slate-800 transition hover:text-violet-700 hover:underline"
+                                className="truncate text-left text-[13px] font-bold text-slate-900 transition hover:text-violet-700 hover:underline"
                               >
                                 {item.nombre}
                               </button>
                               {alertaEvaluada?.cumplePrecioObjetivo && (
-                                <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                                <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                                   Objetivo
                                 </span>
                               )}
                             </span>
-                            <span className="mt-1 block truncate text-[10px] text-slate-400">
+                            <span className="mt-0.5 block truncate text-[11px] text-slate-500">
                               <button
                                 type="button"
                                 onClick={() => onFiltrarMarca(item.marca)}
@@ -845,8 +846,7 @@ export function CatalogSection({
                               </button>{' '}
                               · {item.concentracion ?? item.tipo}
                               {item.ml !== null ? ` · ${item.ml} ml` : ''}
-                              {item.genero ? ` · ${item.genero}` : ''} · #
-                              {item.ean6 ?? item.producto_id}
+                              {item.genero ? ` · ${item.genero}` : ''}
                             </span>
 
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -856,15 +856,15 @@ export function CatalogSection({
                                   onClick={() =>
                                     onSetStockProducto(item.producto_id, 0, 2)
                                   }
-                                  className="inline-flex items-center gap-1 rounded border border-slate-200 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 transition hover:border-violet-300 hover:text-violet-700"
+                                  className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:border-violet-300 hover:text-violet-700"
                                 >
-                                  <Boxes size={10} />
+                                  <Boxes size={11} />
                                   Controlar mi stock
                                 </button>
                               ) : (
                                 <div className="inline-flex flex-wrap items-center gap-1">
-                                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] text-slate-600">
-                                    <Boxes size={10} className="text-slate-400" />
+                                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600">
+                                    <Boxes size={11} className="text-slate-400" />
                                     <span>Stock:</span>
                                     <button
                                       type="button"
@@ -891,7 +891,7 @@ export function CatalogSection({
                                     </button>
                                   </span>
 
-                                  <label className="inline-flex items-center gap-1 text-[9px] text-slate-400">
+                                  <label className="inline-flex items-center gap-1 text-[10px] text-slate-500">
                                     <span>mín</span>
                                     <input
                                       type="number"
@@ -904,12 +904,12 @@ export function CatalogSection({
                                           Number(e.target.value),
                                         )
                                       }
-                                      className="h-4 w-8 rounded border border-slate-200 bg-white px-1 text-center text-[9px] font-semibold text-slate-700 outline-none"
+                                      className="h-5 w-8 rounded border border-slate-200 bg-white px-1 text-center text-[10px] font-semibold text-slate-700 outline-none"
                                     />
                                   </label>
 
                                   {faltaReponer ? (
-                                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
+                                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                                       Reponer {faltantesStock} u.
                                     </span>
                                   ) : (
@@ -965,10 +965,10 @@ export function CatalogSection({
                                 <div>
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     <span
-                                      className={`text-[11px] font-semibold ${
+                                      className={`text-[13px] font-bold tracking-tight ${
                                         oferta.disponible
-                                          ? 'text-slate-700'
-                                          : 'text-slate-400 line-through'
+                                          ? 'text-slate-900'
+                                          : 'text-slate-400 line-through text-[12px]'
                                       }`}
                                     >
                                       {formatearMoneda(
@@ -980,7 +980,7 @@ export function CatalogSection({
                                     {mostrarVariacion && variacion !== null && (
                                       <span
                                         title={tituloVariacion}
-                                        className={`inline-flex items-center rounded px-1 py-0.5 text-[9px] font-semibold ${
+                                        className={`inline-flex items-center rounded px-1.5 py-0.2 text-[10px] font-semibold ${
                                           variacion < 0
                                             ? 'bg-emerald-50 text-emerald-700'
                                             : 'bg-rose-50 text-rose-600'
@@ -997,7 +997,7 @@ export function CatalogSection({
                                     precioConvertido !== null &&
                                     precioConvertido !== undefined &&
                                     oferta.moneda !== monedaVisualizacion && (
-                                      <span className="mt-0.5 block text-[9px] text-slate-400">
+                                      <span className="block text-[10px] font-medium text-slate-400">
                                         ≈{' '}
                                         {formatearMoneda(
                                           precioConvertido,
@@ -1008,7 +1008,7 @@ export function CatalogSection({
 
                                   {(oferta.precio12 !== null ||
                                     oferta.precio24 !== null) && (
-                                    <span className="mt-0.5 block text-[9px] text-slate-400">
+                                    <span className="block text-[10px] text-slate-500">
                                       {oferta.precio12 !== null
                                         ? `12+ ${formatearMoneda(
                                             oferta.precio12,
@@ -1028,17 +1028,11 @@ export function CatalogSection({
                                     </span>
                                   )}
 
-                                  <span
-                                    className={`mt-0.5 block text-[9px] ${
-                                      oferta.disponible
-                                        ? 'text-emerald-700'
-                                        : 'text-rose-500'
-                                    }`}
-                                  >
-                                    {oferta.disponible
-                                      ? 'Disponible'
-                                      : oferta.estadoStock}
-                                  </span>
+                                  {!oferta.disponible && (
+                                    <span className="block text-[10px] font-medium text-rose-500">
+                                      {oferta.estadoStock || 'Sin stock'}
+                                    </span>
+                                  )}
                                 </div>
 
                                 {oferta.disponible && (
@@ -1067,13 +1061,13 @@ export function CatalogSection({
                         mejorOferta &&
                         mejorPrecioMostrado !== null ? (
                           <div className="min-w-[130px]">
-                            <span className="text-[11px] font-semibold text-slate-800">
+                            <span className="text-[13px] font-extrabold text-slate-900">
                               {formatearMoneda(
                                 mejorPrecioMostrado,
                                 monedaVisualizacion,
                               )}
                             </span>
-                            <span className="mt-0.5 block text-[9px] font-medium text-emerald-700">
+                            <span className="block text-[11px] font-semibold text-emerald-700">
                               Mejor oferta · {mejorProveedor}
                             </span>
 
@@ -1089,7 +1083,7 @@ export function CatalogSection({
                                         )}`
                                       : undefined
                                   }
-                                  className="mt-1 inline-flex items-center gap-1 rounded bg-violet-50 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
+                                  className="mt-0.5 inline-flex items-center gap-1 rounded bg-violet-50 px-1.5 py-0.2 text-[10px] font-semibold text-violet-700"
                                 >
                                   <Zap size={9} />
                                   Ahorrás{' '}
@@ -1098,14 +1092,8 @@ export function CatalogSection({
                                 </span>
                               )}
 
-                            {costoMlMostrado !== null &&
-                              costo100MlMostrado !== null && (
-                                <span className="mt-0.5 block text-[9px] text-slate-400">
-                                  {formatearMoneda(
-                                    costoMlMostrado,
-                                    monedaVisualizacion,
-                                  )}
-                                  /ml ·{' '}
+                            {costo100MlMostrado !== null && (
+                                <span className="block text-[10px] text-slate-400">
                                   {formatearMoneda(
                                     costo100MlMostrado,
                                     monedaVisualizacion,
@@ -1171,7 +1159,7 @@ export function CatalogSection({
                                 </div>
                               ) : (
                                 <div className="flex flex-wrap items-center gap-1">
-                                  <span className="text-[11px] font-semibold text-slate-800">
+                                  <span className="text-[13px] font-bold text-slate-900">
                                     PVP:{' '}
                                     {formatearMoneda(
                                       monedaVisualizacion === 'USD'
@@ -1219,7 +1207,7 @@ export function CatalogSection({
                               )}
 
                               <span
-                                className={`mt-0.5 block text-[9px] font-semibold ${
+                                className={`block text-[11px] font-semibold ${
                                   rentabilidadProducto.gananciaNetaARS >= 0
                                     ? 'text-emerald-700'
                                     : 'text-rose-600'
@@ -1242,7 +1230,7 @@ export function CatalogSection({
                                 href={urlMercadoLibre}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 transition hover:bg-amber-100"
+                                className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 transition hover:bg-amber-100"
                                 title={`Buscar ${item.marca} ${item.nombre} en MercadoLibre Argentina`}
                               >
                                 <ExternalLink size={9} />

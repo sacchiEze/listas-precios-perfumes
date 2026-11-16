@@ -1034,7 +1034,7 @@ export function ModalEditorImagenPerfume({
  * para diferenciarlos visualmente de los frascos de perfume e identificarlos solo por su nombre.
  */
 export function IconoBotellaDesodorante({
-  className = 'size-11',
+  className = 'size-[72px]',
   title = 'Desodorante en spray',
 }: {
   className?: string
@@ -1045,7 +1045,7 @@ export function IconoBotellaDesodorante({
       role="img"
       aria-label={title}
       title={title}
-      className={`flex items-center justify-center overflow-hidden rounded-lg border border-orange-300/90 bg-orange-50 text-orange-700 select-none ${className}`}
+      className={`flex items-center justify-center overflow-hidden rounded-lg border border-slate-200/80 bg-slate-50 text-slate-600 select-none ${className}`}
     >
       <svg
         viewBox="0 0 64 64"
@@ -1139,7 +1139,7 @@ export function IconoBotellaDesodorante({
 export function MiniaturaPerfumeEditable({
   producto,
   onAbrirEditor,
-  tamanoClase = 'size-11',
+  tamanoClase = 'size-[72px]',
 }: {
   producto: ProductoComparado
   onAbrirEditor: (
@@ -1264,7 +1264,7 @@ export function MiniaturaPerfumeEditable({
               : 'opacity-0 group-hover/img:opacity-100 group-hover:opacity-100'
           }`}
         >
-          <ImagePlus size={13} />
+          <ImagePlus size={16} />
         </span>
       </button>
 

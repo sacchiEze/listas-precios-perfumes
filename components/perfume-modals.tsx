@@ -1286,9 +1286,9 @@ export function ImportadorListasModal({
 
             {resumen.items.length > 0 && (
               <div className="max-h-[220px] overflow-auto rounded-lg border border-slate-200 bg-white">
-                <table className="w-full border-collapse text-left text-[11px]">
+                <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    <tr className="bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       <th className="px-3 py-2">Producto</th>
                       <th className="px-3 py-2">Impacto</th>
                       <th className="px-3 py-2">Precio</th>
@@ -1305,14 +1305,14 @@ export function ImportadorListasModal({
                               {item.marcaConsolidada} · {item.nombreConsolidado}
                             </span>
                             {item.fila.ml && (
-                              <span className="ml-1 text-[10px] text-slate-400">
+                              <span className="ml-1 text-[11px] text-slate-500">
                                 ({item.fila.ml}ml)
                               </span>
                             )}
                           </td>
                           <td className="px-3 py-2">
                             <span
-                              className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold ${badge.clase}`}
+                              className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${badge.clase}`}
                             >
                               {badge.texto}
                               {item.variacionPorcentaje !== null &&
@@ -1331,7 +1331,7 @@ export function ImportadorListasModal({
                               )}
                             {formatearMoneda(item.fila.precioBase, moneda)}
                           </td>
-                          <td className="px-3 py-2 text-[10px] text-slate-600">
+                          <td className="px-3 py-2 text-[11px] text-slate-600">
                             {item.fila.estadoStock}
                           </td>
                         </tr>

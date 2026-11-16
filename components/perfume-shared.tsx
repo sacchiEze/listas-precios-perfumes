@@ -146,7 +146,7 @@ export function obtenerEstiloTipoProducto(tipo: TipoProducto): {
 } {
   if (tipo === 'Desodorante' || tipo === 'Body Splash') {
     return {
-      cellClass: 'producto-tipo-desodorante',
+      cellClass: 'producto-tipo-perfume',
       badgeClass: 'border-orange-200 bg-orange-100 text-orange-800',
     }
   }

@@ -821,6 +821,7 @@ export function AlertaWatchlistModal({
           <div className="flex items-center gap-3">
             <ImagenFrasco
               src={producto.imagen_url}
+              tipo={producto.tipo}
               alt={`${producto.marca} ${producto.nombre}`}
               className="size-11 shrink-0 rounded-lg border border-slate-200"
             />

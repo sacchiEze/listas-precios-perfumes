@@ -68,6 +68,7 @@ import {
 } from '@/lib/rentabilidad'
 import { estaSupabaseConfigurado } from '@/lib/supabase/cliente'
 import {
+  IconoBotellaDesodorante,
   MiniaturaPerfumeEditable,
   ModalEditorImagenPerfume,
   type ModoEditorImagen,
@@ -458,11 +459,17 @@ export function ImagenFrasco({
   src,
   alt,
   className,
+  tipo,
 }: {
   src: string | null | undefined
   alt: string
   className: string
+  tipo?: TipoProducto
 }) {
+  if (tipo === 'Desodorante') {
+    return <IconoBotellaDesodorante className={className} title={alt} />
+  }
+
   return (
     <img
       src={src || '/placeholder.jpg'}

@@ -249,6 +249,25 @@ export function CatalogSection({
   onCambiarTamanoPagina: (tamano: number) => void
   mapIndicesProveedores: Map<string, number>
 }) {
+    const filtroArbitrajeActivo = filtros.filtroInteligencia === 'ARBITRAJE'
+
+  const alternarOportunidadesArbitraje = () => {
+    if (filtroArbitrajeActivo) {
+      setFiltros((prev) => ({
+        ...prev,
+        filtroInteligencia: 'TODOS',
+      }))
+    } else {
+      setFiltros((prev) => ({
+        ...prev,
+        filtroInteligencia: 'ARBITRAJE',
+        ordenarPor: 'mayor_brecha',
+        pestanaActiva: 'GLOBAL',
+      }))
+    }
+    onCambiarPagina(1)
+  }
+
   const displayedSuppliers =
     filtros.pestanaActiva === 'GLOBAL'
       ? proveedoresDisponibles
@@ -326,7 +345,7 @@ export function CatalogSection({
     },
     {
       id: 'ARBITRAJE',
-      etiqueta: '⚡ Arbitraje ≥5%',
+      etiqueta: '⚡ Más baratos vs otros (≥5%)',
       count: conteosInteligencia.arbitraje,
     },
     {
@@ -339,12 +358,6 @@ export function CatalogSection({
       etiqueta: '🔔 Alertas cumplidas',
       count: conteosInteligencia.alertasActivas,
       destacado: conteosInteligencia.alertasActivas > 0,
-    },
-    {
-      id: 'FALTA_REPONER',
-      etiqueta: '📦 Falta reponer',
-      count: conteosInteligencia.faltaReponer,
-      destacado: conteosInteligencia.faltaReponer > 0,
     },
   ]
 
@@ -360,6 +373,38 @@ export function CatalogSection({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={alternarOportunidadesArbitraje}
+            title="Mostrar perfumes que están significativamente más baratos en un proveedor respecto a los demás en la lista"
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+              filtroArbitrajeActivo
+                ? 'border-amber-400 bg-amber-500 text-white shadow-xs hover:bg-amber-600'
+                : 'border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-400 hover:bg-amber-100'
+            }`}
+          >
+            <Zap
+              size={13}
+              className={
+                filtroArbitrajeActivo
+                  ? 'fill-white text-white'
+                  : 'fill-amber-600 text-amber-600'
+              }
+            />
+            <span>Más baratos entre listas</span>
+            {conteosInteligencia.arbitraje > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  filtroArbitrajeActivo
+                    ? 'bg-white/25 text-white'
+                    : 'bg-amber-200 text-amber-950'
+                }`}
+              >
+                {conteosInteligencia.arbitraje}
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={onAbrirImportador}
@@ -546,17 +591,6 @@ export function CatalogSection({
             </button>
           )
         })}
-
-        {conteosInteligencia.faltaReponer > 0 && (
-          <button
-            type="button"
-            onClick={onAgregarFaltantesAlCarrito}
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
-          >
-            <ShoppingBag size={11} />
-            Agregar faltantes al carrito
-          </button>
-        )}
       </div>
 
       {filtersOpen && (
@@ -705,6 +739,25 @@ export function CatalogSection({
         </div>
       )}
 
+      {filtroArbitrajeActivo && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50/90 px-4 py-2.5 text-xs sm:px-5">
+          <div className="flex items-center gap-2 text-amber-900">
+            <Zap size={14} className="shrink-0 fill-amber-500 text-amber-600" />
+            <span>
+              Mostrando perfumes donde un proveedor está <strong>notablemente más barato (≥5%)</strong> respecto a los demás en la lista.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={alternarOportunidadesArbitraje}
+            className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
+          >
+            <X size={11} />
+            Mostrar todos
+          </button>
+        </div>
+      )}
+
       {cargandoCatalogo ? (
         <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-[12px] text-slate-500">
           <Loader2 size={20} className="animate-spin text-violet-600" />
@@ -848,90 +901,6 @@ export function CatalogSection({
                               {item.ml !== null ? ` · ${item.ml} ml` : ''}
                               {item.genero ? ` · ${item.genero}` : ''}
                             </span>
-
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              {!registroStock ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    onSetStockProducto(item.producto_id, 0, 2)
-                                  }
-                                  className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:border-violet-300 hover:text-violet-700"
-                                >
-                                  <Boxes size={11} />
-                                  Controlar mi stock
-                                </button>
-                              ) : (
-                                <div className="inline-flex flex-wrap items-center gap-1">
-                                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600">
-                                    <Boxes size={11} className="text-slate-400" />
-                                    <span>Stock:</span>
-                                    <button
-                                      type="button"
-                                      aria-label={`Restar stock propio de ${item.nombre}`}
-                                      onClick={() =>
-                                        onAjustarStock(item.producto_id, -1)
-                                      }
-                                      className="rounded px-1 font-semibold hover:bg-slate-200"
-                                    >
-                                      −
-                                    </button>
-                                    <strong className="text-slate-800">
-                                      {registroStock.cantidadActual}
-                                    </strong>
-                                    <button
-                                      type="button"
-                                      aria-label={`Sumar stock propio de ${item.nombre}`}
-                                      onClick={() =>
-                                        onAjustarStock(item.producto_id, 1)
-                                      }
-                                      className="rounded px-1 font-semibold hover:bg-slate-200"
-                                    >
-                                      +
-                                    </button>
-                                  </span>
-
-                                  <label className="inline-flex items-center gap-1 text-[10px] text-slate-500">
-                                    <span>mín</span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      aria-label={`Stock mínimo de ${item.nombre}`}
-                                      value={registroStock.stockMinimo}
-                                      onChange={(e) =>
-                                        onSetStockMinimo(
-                                          item.producto_id,
-                                          Number(e.target.value),
-                                        )
-                                      }
-                                      className="h-5 w-8 rounded border border-slate-200 bg-white px-1 text-center text-[10px] font-semibold text-slate-700 outline-none"
-                                    />
-                                  </label>
-
-                                  {faltaReponer ? (
-                                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                                      Reponer {faltantesStock} u.
-                                    </span>
-                                  ) : (
-                                    <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
-                                      OK
-                                    </span>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onQuitarStock(item.producto_id)
-                                    }
-                                    title="Quitar control de stock propio"
-                                    aria-label={`Quitar control de stock de ${item.nombre}`}
-                                    className="rounded p-0.5 text-slate-400 hover:text-rose-600"
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
                           </span>
                         </div>
                       </td>

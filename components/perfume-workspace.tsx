@@ -186,6 +186,20 @@ export function PerfumeWorkspace() {
   const [productoHistorialId, setProductoHistorialId] = useState<number | null>(
     null,
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const productoParam = params.get('producto')
+    if (productoParam) {
+      const id = Number(productoParam)
+      if (Number.isFinite(id) && id > 0) {
+        setProductoHistorialId(id)
+        setHistorySupplierTab('GLOBAL')
+        setView('history')
+      }
+    }
+  }, [])
   const [datosHistorial, setDatosHistorial] = useState<PuntoHistorialGrafico[]>(
     [],
   )
@@ -1253,11 +1267,10 @@ export function PerfumeWorkspace() {
   }, [])
 
   const abrirDetallePerfume = useCallback((item: ProductoComparado) => {
-    setProductoHistorialId(item.producto_id)
-    setHistorySupplierTab('GLOBAL')
-    setView('history')
     if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      const url = new URL(window.location.href)
+      url.searchParams.set('producto', String(item.producto_id))
+      window.open(url.toString(), '_blank', 'noopener,noreferrer')
     }
   }, [])
 
@@ -1327,8 +1340,8 @@ export function PerfumeWorkspace() {
           className="mb-5 flex items-center gap-3 px-1 text-left lg:mb-9"
           aria-label="PerfumeHub, ir al resumen"
         >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#29233e] text-sm font-bold text-white">
-            P<span className="text-violet-300">.</span>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-base font-extrabold text-green-600 shadow-xs">
+            P
           </span>
           <span>
             <span className="block text-[15px] font-semibold tracking-[-.03em] text-slate-900">
@@ -2642,7 +2655,16 @@ export function PerfumeWorkspace() {
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setView('catalog')}
+                          onClick={() => {
+                            setView('catalog')
+                            if (typeof window !== 'undefined') {
+                              const url = new URL(window.location.href)
+                              if (url.searchParams.has('producto')) {
+                                url.searchParams.delete('producto')
+                                window.history.replaceState({}, '', url.toString())
+                              }
+                            }
+                          }}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
                         >
                           <ChevronLeft size={13} />

@@ -21,6 +21,7 @@ export const FILTROS_CATALOGO_INICIALES: FiltrosCatalogo = {
   marcasSeleccionadas: [],
   tiposSeleccionados: [],
   genero: null,
+  categoria: null,
   soloEnStock: false,
   rangoPrecioARS: [null, null],
   ordenarPor: 'precio_asc',
@@ -338,6 +339,7 @@ export function useCatalogoPerfumes(
           concentracion: fila.concentracion,
           ml: fila.ml,
           genero: fila.genero,
+          categoria: fila.categoria ?? null,
           imagen_url: esDesodorante ? null : fila.imagen_url,
           ofertas: {},
           mejorPrecioARS: null,
@@ -368,6 +370,9 @@ export function useCatalogoPerfumes(
       } else {
         if (!esDesodorante && !producto.imagen_url && fila.imagen_url) {
           producto.imagen_url = fila.imagen_url
+        }
+        if (!producto.categoria && fila.categoria) {
+          producto.categoria = fila.categoria
         }
         if (
           !producto.precioVentaManualARS &&
@@ -505,6 +510,15 @@ export function useCatalogoPerfumes(
         continue
       }
 
+      if (filtros.categoria === 'SIN_CATEGORIA') {
+        if (productoContextual.categoria) continue
+      } else if (
+        filtros.categoria &&
+        productoContextual.categoria !== filtros.categoria
+      ) {
+        continue
+      }
+
       if (precioMinARS !== null) {
         if (
           productoContextual.mejorPrecioARS === null ||
@@ -531,6 +545,7 @@ export function useCatalogoPerfumes(
             productoContextual.concentracion ?? '',
             productoContextual.ml !== null ? String(productoContextual.ml) : '',
             productoContextual.ml !== null ? `${productoContextual.ml}ml` : '',
+            productoContextual.categoria ?? '',
             productoContextual.ean6 ?? '',
           ].join(' '),
         )

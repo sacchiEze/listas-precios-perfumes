@@ -73,6 +73,7 @@ import {
   type ModoEditorImagen,
 } from '@/components/image-editor-modal'
 import {
+  actualizarCategoriaProducto,
   actualizarImagenProducto,
   actualizarPrecioVentaManualProducto,
   obtenerHistorialPorProducto,
@@ -100,6 +101,7 @@ import {
 } from '@/store/useWatchlistStore'
 import type {
   AlertaWatchlistEvaluada,
+  CategoriaPerfume,
   ConfiguracionRentabilidad,
   CotizacionesDolarDia,
   CriterioOrdenamiento,
@@ -777,6 +779,42 @@ export function PerfumeWorkspace() {
     setTimeout(() => setMensajeSyncFotos(null), 6000)
   }
 
+  const manejarCambiarCategoriaProducto = useCallback(
+    async (
+      producto: ProductoComparado,
+      nuevaCategoria: CategoriaPerfume | null,
+    ) => {
+      const categoriaAnterior = producto.categoria ?? null
+      setFilasCatalogo((previo) =>
+        previo.map((fila) =>
+          fila.producto_id === producto.producto_id
+            ? { ...fila, categoria: nuevaCategoria }
+            : fila,
+        ),
+      )
+
+      try {
+        if (!usandoDemo && estaSupabaseConfigurado()) {
+          await actualizarCategoriaProducto(producto.producto_id, nuevaCategoria)
+        }
+      } catch (error) {
+        setFilasCatalogo((previo) =>
+          previo.map((fila) =>
+            fila.producto_id === producto.producto_id
+              ? { ...fila, categoria: categoriaAnterior }
+              : fila,
+          ),
+        )
+        setErrorCatalogo(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo actualizar la categoría del perfume.',
+        )
+      }
+    },
+    [usandoDemo],
+  )
+
   const manejarGuardarPrecioVentaManual = useCallback(
     async (producto: ProductoComparado, nuevoPrecioARS: number | null) => {
       const valorNormalizado =
@@ -1284,6 +1322,7 @@ export function PerfumeWorkspace() {
     filtros.marcasSeleccionadas.length +
     filtros.tiposSeleccionados.length +
     (filtros.genero ? 1 : 0) +
+    (filtros.categoria ? 1 : 0) +
     (filtros.soloEnStock ? 1 : 0) +
     (filtros.filtroInteligencia !== 'TODOS' ? 1 : 0) +
     (precioMinInput.trim() ? 1 : 0) +
@@ -1568,16 +1607,6 @@ export function PerfumeWorkspace() {
                 />
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={alternarMonedaVisualizacion}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-medium text-slate-600 transition hover:bg-slate-50"
-              aria-label="Cambiar moneda de comparación"
-            >
-              <ArrowDownUp size={12} />
-              <span>{monedaVisualizacion}</span>
-            </button>
 
             <button
               type="button"
@@ -2288,6 +2317,7 @@ export function PerfumeWorkspace() {
                 onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
                 onAbrirImportador={() => setModalImportadorAbierto(true)}
                 onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
+                onCambiarCategoria={manejarCambiarCategoriaProducto}
                 cargandoCatalogo={cargandoCatalogo}
                 onAdd={manejarAgregarAlCarrito}
                 onHistory={abrirDetallePerfume}
@@ -2338,6 +2368,7 @@ export function PerfumeWorkspace() {
               onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
               onAbrirImportador={() => setModalImportadorAbierto(true)}
               onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
+              onCambiarCategoria={manejarCambiarCategoriaProducto}
               cargandoCatalogo={cargandoCatalogo}
               onAdd={manejarAgregarAlCarrito}
               onHistory={abrirDetallePerfume}

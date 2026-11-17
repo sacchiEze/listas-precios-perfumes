@@ -1,6 +1,7 @@
 import { generarVariacionesRespaldo } from '@/lib/rentabilidad'
 import { estaSupabaseConfigurado, supabase } from '@/lib/supabase/cliente'
 import type {
+  CategoriaPerfume,
   FilaVistaComparador,
   HistorialPrecioFila,
   MapaVariacionesPrecios,
@@ -296,6 +297,37 @@ export async function actualizarPrecioVentaManualProducto(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productoId, precioVentaManualARS }),
+  })
+
+  if (!respuesta.ok) {
+    let mensajeError = `Error HTTP ${respuesta.status}`
+    try {
+      const datos = (await respuesta.json()) as { error?: string }
+      if (datos?.error) {
+        mensajeError = datos.error
+      }
+    } catch {
+      // Mantenemos el mensaje por estado HTTP
+    }
+    throw new Error(mensajeError)
+  }
+}
+
+/**
+ * Actualiza la categoría ('Arabe', 'Premium' o null) de un perfume en `catalogo_productos`.
+ */
+export async function actualizarCategoriaProducto(
+  productoId: number,
+  categoria: CategoriaPerfume | null,
+): Promise<void> {
+  if (!estaSupabaseConfigurado()) {
+    return
+  }
+
+  const respuesta = await fetch('/api/productos/categoria', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productoId, categoria }),
   })
 
   if (!respuesta.ok) {

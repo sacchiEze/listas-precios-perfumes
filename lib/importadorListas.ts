@@ -1,4 +1,5 @@
 import type {
+  CategoriaPerfume,
   ConcentracionPerfume,
   EstadoCambioImportacion,
   EstadoStock,
@@ -10,6 +11,7 @@ import type {
   Moneda,
   ProductoComparado,
   ResumenPrevisualizacionImportacion,
+  TipoListaImportacion,
   TipoProducto,
 } from '@/types/perfumeria'
 
@@ -201,6 +203,24 @@ function parsearGenero(valor?: string): GeneroPerfume | null {
   return null
 }
 
+export function parsearCategoriaPerfume(
+  valor?: string,
+): CategoriaPerfume | null {
+  const norm = normalizarTextoImportacion(valor ?? '')
+  if (!norm) return null
+  if (norm.includes('arabe') || norm.includes('oriental')) return 'Arabe'
+  if (
+    norm.includes('premium') ||
+    norm.includes('disenador') ||
+    norm.includes('designer') ||
+    norm.includes('nicho') ||
+    norm.includes('niche')
+  ) {
+    return 'Premium'
+  }
+  return null
+}
+
 function extraerMetadatosDeTextoProducto(texto: string): {
   marcaInferida: string
   nombreLimpio: string
@@ -252,6 +272,7 @@ interface IndicesCabecera {
   concentracion?: number
   ml?: number
   genero?: number
+  categoria?: number
   precioBase?: number
   precio12?: number
   precio24?: number
@@ -282,8 +303,11 @@ function detectarIndicesCabecera(celdas: string[]): IndicesCabecera | null {
     } else if (h.includes('ean') || h === 'codigo' || h === 'sku') {
       indices.ean6 = idx
       coincidencias += 1
-    } else if (h === 'tipo' || h === 'categoria') {
+    } else if (h === 'tipo') {
       indices.tipo = idx
+      coincidencias += 1
+    } else if (h === 'categoria' || h === 'gama' || h === 'segmento') {
+      indices.categoria = idx
       coincidencias += 1
     } else if (h.includes('conc')) {
       indices.concentracion = idx
@@ -364,6 +388,7 @@ export function parsearTextoListaProveedor(texto: string): {
     let concentracion: ConcentracionPerfume | null = null
     let ml: number | null = null
     let genero: GeneroPerfume | null = null
+    let categoria: CategoriaPerfume | null = null
     let precioBase: number | null = null
     let precio12: number | null = null
     let precio24: number | null = null
@@ -380,6 +405,9 @@ export function parsearTextoListaProveedor(texto: string): {
       const mlRaw = cabecera.ml !== undefined ? Number(celdas[cabecera.ml]) : NaN
       ml = Number.isFinite(mlRaw) && mlRaw > 0 ? Math.round(mlRaw) : null
       genero = parsearGenero(cabecera.genero !== undefined ? celdas[cabecera.genero] : undefined)
+      categoria = parsearCategoriaPerfume(
+        cabecera.categoria !== undefined ? celdas[cabecera.categoria] : undefined,
+      )
       precioBase = limpiarNumeroPrecio(
         cabecera.precioBase !== undefined ? celdas[cabecera.precioBase] : undefined,
       )
@@ -447,6 +475,7 @@ export function parsearTextoListaProveedor(texto: string): {
       concentracion,
       ml,
       genero,
+      categoria,
       precioBase,
       precio12,
       precio24,
@@ -466,6 +495,7 @@ export function generarPrevisualizacionImportacion(
   proveedor: string,
   moneda: Moneda,
   productosExistentes: ProductoComparado[],
+  tipoLista: TipoListaImportacion = 'Arabe',
 ): ResumenPrevisualizacionImportacion {
   const { filas, errores } = parsearTextoListaProveedor(texto)
   const proveedorLimpio = proveedor.trim() || 'Nuevo Proveedor'
@@ -505,8 +535,14 @@ export function generarPrevisualizacionImportacion(
 
     if (!match) {
       conteoNuevosProductos += 1
+      const categoriaNueva: CategoriaPerfume | null =
+        tipoLista === 'Arabe'
+          ? 'Arabe'
+          : tipoLista === 'Premium'
+            ? 'Premium'
+            : fila.categoria
       return {
-        fila,
+        fila: { ...fila, categoria: categoriaNueva },
         productoExistenteId: null,
         nombreConsolidado: fila.nombre,
         marcaConsolidada: fila.marca,
@@ -517,11 +553,23 @@ export function generarPrevisualizacionImportacion(
       }
     }
 
+    const categoriaResuelta: CategoriaPerfume | null =
+      match.categoria ??
+      (tipoLista === 'Arabe'
+        ? 'Arabe'
+        : tipoLista === 'Premium'
+          ? 'Premium'
+          : fila.categoria)
+    const filaResuelta: FilaImportadaCruda = {
+      ...fila,
+      categoria: categoriaResuelta,
+    }
+
     const ofertaActual = match.ofertas[proveedorLimpio]
     if (!ofertaActual || ofertaActual.precioBase === null) {
       conteoNuevasOfertas += 1
       return {
-        fila,
+        fila: filaResuelta,
         productoExistenteId: match.producto_id,
         nombreConsolidado: match.nombre,
         marcaConsolidada: match.marca,
@@ -558,7 +606,7 @@ export function generarPrevisualizacionImportacion(
     }
 
     return {
-      fila,
+      fila: filaResuelta,
       productoExistenteId: match.producto_id,
       nombreConsolidado: match.nombre,
       marcaConsolidada: match.marca,
@@ -572,6 +620,7 @@ export function generarPrevisualizacionImportacion(
   return {
     proveedor: proveedorLimpio,
     moneda,
+    tipoLista,
     items,
     conteoNuevosProductos,
     conteoNuevasOfertas,
@@ -634,6 +683,11 @@ export function aplicarImportacionEnMemoria(
         item.fila.concentracion,
       ml: existente?.ml ?? plantilla?.ml ?? item.fila.ml,
       genero: existente?.genero ?? plantilla?.genero ?? item.fila.genero,
+      categoria:
+        existente?.categoria ??
+        plantilla?.categoria ??
+        item.fila.categoria ??
+        null,
       imagen_url: existente?.imagen_url ?? plantilla?.imagen_url ?? null,
       proveedor: resumen.proveedor,
       moneda: resumen.moneda,

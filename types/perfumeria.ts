@@ -20,6 +20,15 @@ export type ConcentracionPerfume = 'EDP' | 'EDT' | 'Parfum' | 'Extrait' | 'N/A'
 /** Géneros admitidos en el catálogo */
 export type GeneroPerfume = 'Masculino' | 'Femenino' | 'Unisex'
 
+/** Categorías / gamas de perfumes admitidas */
+export type CategoriaPerfume = 'Arabe' | 'Premium'
+
+/** Tipo de lista de precios al importar */
+export type TipoListaImportacion = 'Arabe' | 'Premium' | 'Mixta'
+
+/** Valor de filtro para categoría en el catálogo */
+export type FiltroCategoriaPerfume = CategoriaPerfume | 'SIN_CATEGORIA' | null
+
 /** Monedas soportadas por los proveedores y la visualización */
 export type Moneda = 'ARS' | 'USD'
 
@@ -74,6 +83,7 @@ export interface CatalogoProducto {
   concentracion: ConcentracionPerfume | null
   ml: number | null
   genero: GeneroPerfume | null
+  categoria?: CategoriaPerfume | null
   imagen_url: string | null
   precio_venta_manual_ars?: number | null
   created_at: string
@@ -115,6 +125,7 @@ export interface FilaVistaComparador {
   concentracion: ConcentracionPerfume | null
   ml: number | null
   genero: GeneroPerfume | null
+  categoria?: CategoriaPerfume | null
   imagen_url: string | null
   proveedor: string
   moneda: Moneda
@@ -165,6 +176,7 @@ export interface ProductoComparado {
   concentracion: ConcentracionPerfume | null
   ml: number | null
   genero: GeneroPerfume | null
+  categoria: CategoriaPerfume | null
   imagen_url: string | null
   ofertas: Record<string, OfertaProveedor>
   mejorPrecioARS: number | null
@@ -202,6 +214,7 @@ export interface FiltrosCatalogo {
   marcasSeleccionadas: string[]
   tiposSeleccionados: string[]
   genero: string | null
+  categoria: FiltroCategoriaPerfume
   soloEnStock: boolean
   rangoPrecioARS: [number | null, number | null]
   ordenarPor: CriterioOrdenamiento
@@ -358,6 +371,7 @@ export interface FilaImportadaCruda {
   concentracion: ConcentracionPerfume | null
   ml: number | null
   genero: GeneroPerfume | null
+  categoria: CategoriaPerfume | null
   precioBase: number
   precio12: number | null
   precio24: number | null
@@ -389,6 +403,7 @@ export interface ItemPrevisualizacionImportacion {
 export interface ResumenPrevisualizacionImportacion {
   proveedor: string
   moneda: Moneda
+  tipoLista: TipoListaImportacion
   items: ItemPrevisualizacionImportacion[]
   conteoNuevosProductos: number
   conteoNuevasOfertas: number

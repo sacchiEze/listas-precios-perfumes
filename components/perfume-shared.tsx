@@ -101,10 +101,12 @@ import {
 } from '@/store/useWatchlistStore'
 import type {
   AlertaWatchlistEvaluada,
+  CategoriaPerfume,
   ConfiguracionRentabilidad,
   CotizacionesDolarDia,
   CriterioOrdenamiento,
   FilaVistaComparador,
+  FiltroCategoriaPerfume,
   FiltrosCatalogo,
   FiltroInteligenciaPrecios,
   GeneroPerfume,
@@ -171,6 +173,36 @@ export const GENEROS_FILTRO: Array<{ etiqueta: string; valor: GeneroPerfume | nu
   { etiqueta: 'Unisex', valor: 'Unisex' },
 ]
 
+export const CATEGORIAS_FILTRO: Array<{
+  etiqueta: string
+  valor: FiltroCategoriaPerfume
+}> = [
+  { etiqueta: 'Todas', valor: null },
+  { etiqueta: 'Árabe', valor: 'Arabe' },
+  { etiqueta: 'Premium', valor: 'Premium' },
+  { etiqueta: 'Sin categoría', valor: 'SIN_CATEGORIA' },
+]
+
+export function etiquetaCategoriaPerfume(
+  categoria?: CategoriaPerfume | null,
+): string {
+  if (categoria === 'Arabe') return 'Árabe'
+  if (categoria === 'Premium') return 'Premium'
+  return 'Sin categoría'
+}
+
+export function obtenerEstiloCategoriaPerfume(
+  categoria?: CategoriaPerfume | null,
+): string {
+  if (categoria === 'Arabe') {
+    return 'border-amber-200 bg-amber-50/90 text-amber-800'
+  }
+  if (categoria === 'Premium') {
+    return 'border-violet-200 bg-violet-50/90 text-violet-800'
+  }
+  return 'border-slate-200 bg-slate-100 text-slate-500'
+}
+
 export const OPCIONES_ORDENAMIENTO: Array<{
   etiqueta: string
   valor: CriterioOrdenamiento
@@ -208,11 +240,15 @@ export function obtenerColorProveedor(nombre: string, indice: number): string {
 }
 
 export function formatearMoneda(valor: number, moneda: Moneda): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: moneda,
+  const numeroFormateado = new Intl.NumberFormat('es-AR', {
+    minimumFractionDigits: moneda === 'USD' ? 2 : 0,
     maximumFractionDigits: moneda === 'USD' ? 2 : 0,
   }).format(valor)
+
+  if (moneda === 'ARS') {
+    return `🧉 $ ${numeroFormateado}`
+  }
+  return `💵 US$ ${numeroFormateado}`
 }
 
 /**

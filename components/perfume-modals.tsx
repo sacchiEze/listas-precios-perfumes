@@ -100,6 +100,7 @@ import {
 } from '@/store/useWatchlistStore'
 import type {
   AlertaWatchlistEvaluada,
+  CategoriaPerfume,
   ConfiguracionRentabilidad,
   CotizacionesDolarDia,
   CriterioOrdenamiento,
@@ -118,6 +119,7 @@ import type {
   ResultadoSincronizacionImagenes,
   ResumenPrevisualizacionImportacion,
   TipoCotizacionDolar,
+  TipoListaImportacion,
   TipoProducto,
 } from '@/types/perfumeria'
 import {
@@ -990,6 +992,10 @@ export function ImportadorListasModal({
   )
   const [nuevoProveedor, setNuevoProveedor] = useState<string>('')
   const [moneda, setMoneda] = useState<Moneda>('USD')
+  const [tipoLista, setTipoLista] = useState<TipoListaImportacion>('Arabe')
+  const [categoriasEditadas, setCategoriasEditadas] = useState<
+    Record<number, CategoriaPerfume | null>
+  >({})
   const [textoLista, setTextoLista] = useState<string>('')
   const [importando, setImportando] = useState(false)
   const [errorImport, setErrorImport] = useState<string | null>(null)
@@ -1006,8 +1012,29 @@ export function ImportadorListasModal({
       proveedorFinal || 'Nuevo Proveedor',
       moneda,
       productosGlobales,
+      tipoLista,
     )
-  }, [textoLista, proveedorFinal, moneda, productosGlobales])
+  }, [textoLista, proveedorFinal, moneda, productosGlobales, tipoLista])
+
+  const itemsConCategoria = useMemo(() => {
+    if (!resumen) return []
+    return resumen.items.map((item) => {
+      const override = categoriasEditadas[item.fila.lineaNumero]
+      if (override === undefined) return item
+      return {
+        ...item,
+        fila: {
+          ...item.fila,
+          categoria: override,
+        },
+      }
+    })
+  }, [resumen, categoriasEditadas])
+
+  const conteoSinCategoria = useMemo(
+    () => itemsConCategoria.filter((item) => !item.fila.categoria).length,
+    [itemsConCategoria],
+  )
 
   const manejarArchivo = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -1034,7 +1061,11 @@ export function ImportadorListasModal({
     setImportando(true)
     setErrorImport(null)
     try {
-      await onImportar({ ...resumen, proveedor: proveedorFinal })
+      await onImportar({
+        ...resumen,
+        proveedor: proveedorFinal,
+        items: itemsConCategoria,
+      })
     } catch (error) {
       setErrorImport(
         error instanceof Error
@@ -1181,6 +1212,68 @@ export function ImportadorListasModal({
         </div>
 
         <div className="mt-3">
+          <span className="text-[11px] font-medium text-slate-600">
+            Tipo de lista (gama de perfumes)
+          </span>
+          <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {(
+              [
+                {
+                  valor: 'Arabe',
+                  titulo: 'Todos Árabes',
+                  descripcion: 'Asigna categoría Árabe a toda la lista',
+                },
+                {
+                  valor: 'Premium',
+                  titulo: 'Todos Premium',
+                  descripcion: 'Diseñador y Nicho',
+                },
+                {
+                  valor: 'Mixta',
+                  titulo: 'Lista Mixta',
+                  descripcion: 'Trae ambas gamas; asignás por perfume',
+                },
+              ] as const
+            ).map((opcion) => {
+              const activo = tipoLista === opcion.valor
+              return (
+                <button
+                  key={opcion.valor}
+                  type="button"
+                  onClick={() => {
+                    setTipoLista(opcion.valor)
+                    setCategoriasEditadas({})
+                  }}
+                  className={`rounded-xl border px-3 py-2 text-left transition ${
+                    activo
+                      ? 'border-violet-500 bg-violet-50/70 ring-1 ring-violet-500/30'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        activo ? 'text-violet-900' : 'text-slate-800'
+                      }`}
+                    >
+                      {opcion.titulo}
+                    </span>
+                    <span
+                      className={`size-2 rounded-full ${
+                        activo ? 'bg-violet-600' : 'bg-slate-200'
+                      }`}
+                    />
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-slate-500">
+                    {opcion.descripcion}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="mt-3">
           <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
             <span className="text-[11px] font-medium text-slate-600">
               Pegá filas desde Excel, Google Sheets o CSV
@@ -1269,6 +1362,11 @@ export function ImportadorListasModal({
                   {resumen.conteoSinCambios} sin cambios
                 </span>
               )}
+              {conteoSinCategoria > 0 && (
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700 ring-1 ring-amber-200">
+                  {conteoSinCategoria} sin categoría (se puede asignar después)
+                </span>
+              )}
             </div>
 
             {resumen.erroresFormato.length > 0 && (
@@ -1290,13 +1388,14 @@ export function ImportadorListasModal({
                   <thead>
                     <tr className="bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       <th className="px-3 py-2">Producto</th>
+                      <th className="px-3 py-2">Categoría</th>
                       <th className="px-3 py-2">Impacto</th>
                       <th className="px-3 py-2">Precio</th>
                       <th className="px-3 py-2">Stock</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {resumen.items.slice(0, 50).map((item) => {
+                    {itemsConCategoria.slice(0, 50).map((item) => {
                       const badge = etiquetaEstado(item.estadoCambio)
                       return (
                         <tr key={`${item.fila.lineaNumero}-${item.fila.nombre}`}>
@@ -1309,6 +1408,34 @@ export function ImportadorListasModal({
                                 ({item.fila.ml}ml)
                               </span>
                             )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <select
+                              aria-label={`Categoría para ${item.nombreConsolidado}`}
+                              value={item.fila.categoria ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                const nuevaCat: CategoriaPerfume | null =
+                                  val === 'Arabe' || val === 'Premium'
+                                    ? val
+                                    : null
+                                setCategoriasEditadas((prev) => ({
+                                  ...prev,
+                                  [item.fila.lineaNumero]: nuevaCat,
+                                }))
+                              }}
+                              className={`h-7 rounded-md border px-1.5 text-[10px] font-semibold outline-none ${
+                                item.fila.categoria === 'Arabe'
+                                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                  : item.fila.categoria === 'Premium'
+                                    ? 'border-violet-200 bg-violet-50 text-violet-800'
+                                    : 'border-slate-200 bg-slate-50 text-slate-500'
+                              }`}
+                            >
+                              <option value="">Sin categoría</option>
+                              <option value="Arabe">Árabe</option>
+                              <option value="Premium">Premium</option>
+                            </select>
                           </td>
                           <td className="px-3 py-2">
                             <span

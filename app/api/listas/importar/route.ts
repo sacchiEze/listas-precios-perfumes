@@ -99,6 +99,7 @@ export async function POST(request: Request) {
             concentracion: item.fila.concentracion,
             ml: item.fila.ml,
             genero: item.fila.genero,
+            categoria: item.fila.categoria ?? null,
           })
           .select('id')
           .single()
@@ -117,6 +118,13 @@ export async function POST(request: Request) {
       nuevosProductos += 1
     } else {
       actualizados += 1
+      if (item.fila.categoria === 'Arabe' || item.fila.categoria === 'Premium') {
+        await supabaseAdmin
+          .from('catalogo_productos')
+          .update({ categoria: item.fila.categoria })
+          .eq('id', productoId)
+          .is('categoria', null)
+      }
     }
 
     const { data: ofertaExistente, error: errorBuscarOferta } =

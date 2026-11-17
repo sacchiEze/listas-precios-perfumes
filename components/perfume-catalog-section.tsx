@@ -100,6 +100,7 @@ import {
 } from '@/store/useWatchlistStore'
 import type {
   AlertaWatchlistEvaluada,
+  CategoriaPerfume,
   ConfiguracionRentabilidad,
   CotizacionesDolarDia,
   CriterioOrdenamiento,
@@ -129,6 +130,8 @@ import {
   TIPOS_PRODUCTO_DISPONIBLES,
   obtenerEstiloTipoProducto,
   GENEROS_FILTRO,
+  CATEGORIAS_FILTRO,
+  obtenerEstiloCategoriaPerfume,
   OPCIONES_ORDENAMIENTO,
   OPCIONES_ESCALA,
   obtenerColorProveedor,
@@ -171,6 +174,7 @@ export function CatalogSection({
   onAbrirRentabilidad,
   onAbrirImportador,
   onGuardarPrecioManual,
+  onCambiarCategoria,
   cargandoCatalogo,
   onAdd,
   onHistory,
@@ -231,6 +235,10 @@ export function CatalogSection({
     nuevoPrecioARS: number | null,
   ) => Promise<void>
   cargandoCatalogo: boolean
+  onCambiarCategoria: (
+    producto: ProductoComparado,
+    nuevaCategoria: CategoriaPerfume | null,
+  ) => Promise<void>
   onAdd: (producto: ProductoComparado, oferta: OfertaProveedor) => void
   onHistory: (producto: ProductoComparado) => void
   onFiltrarMarca: (marca: string) => void
@@ -541,7 +549,7 @@ export function CatalogSection({
 
           <span className="hidden h-5 border-l border-slate-200 sm:block" />
           <span className="hidden text-[10px] text-slate-400 sm:inline">
-            Vista comparativa · {monedaVisualizacion}
+            Precios en USD y ARS
           </span>
         </div>
       </div>
@@ -618,6 +626,28 @@ export function CatalogSection({
               ))}
             </div>
 
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Categoría
+              </span>
+              {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
+                <button
+                  type="button"
+                  key={etiqueta}
+                  onClick={() =>
+                    setFiltros((prev) => ({ ...prev, categoria: valor }))
+                  }
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    filtros.categoria === valor
+                      ? 'bg-[#34294d] text-white'
+                      : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Tipo
@@ -648,7 +678,7 @@ export function CatalogSection({
 
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Precio ({monedaVisualizacion})
+                Precio (USD)
               </span>
               <input
                 aria-label="Precio mínimo"
@@ -857,6 +887,25 @@ export function CatalogSection({
                       className="catalog-row group transition hover:bg-slate-50/70"
                     >
                       <td className="whitespace-nowrap px-4 py-3 sm:px-5">
+                        <div className="mb-1">
+                          <select
+                            aria-label={`Categoría de ${item.marca} ${item.nombre}`}
+                            value={item.categoria ?? ''}
+                            onChange={(event) => {
+                              const val = event.target.value
+                              const nuevaCat: CategoriaPerfume | null =
+                                val === 'Arabe' || val === 'Premium'
+                                  ? val
+                                  : null
+                              void onCambiarCategoria(item, nuevaCat)
+                            }}
+                            className={`h-6 cursor-pointer rounded-md border px-1.5 text-[10px] font-semibold outline-none transition ${obtenerEstiloCategoriaPerfume(item.categoria)}`}
+                          >
+                            <option value="">Sin categoría</option>
+                            <option value="Arabe">Árabe</option>
+                            <option value="Premium">Premium</option>
+                          </select>
+                        </div>
                         <span
                           className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-medium ${estiloTipo.badgeClass}`}
                         >
@@ -907,10 +956,6 @@ export function CatalogSection({
 
                       {displayedSuppliers.map((nombre) => {
                         const oferta = item.ofertas[nombre]
-                        const precioConvertido =
-                          monedaVisualizacion === 'USD'
-                            ? oferta?.precioBaseEnUSD
-                            : oferta?.precioBaseEnARS
                         const variacion = oferta?.variacionPorcentaje ?? null
                         const mostrarVariacion =
                           variacion !== null && Math.abs(variacion) >= 0.1
@@ -940,10 +985,12 @@ export function CatalogSection({
                                           : 'text-slate-400 line-through text-[12px]'
                                       }`}
                                     >
-                                      {formatearMoneda(
-                                        oferta.precioBase,
-                                        oferta.moneda,
-                                      )}
+                                      {oferta.precioBaseEnUSD !== null
+                                        ? formatearMoneda(
+                                            oferta.precioBaseEnUSD,
+                                            'USD',
+                                          )
+                                        : '—'}
                                     </span>
 
                                     {mostrarVariacion && variacion !== null && (
@@ -963,14 +1010,11 @@ export function CatalogSection({
                                   </div>
 
                                   {oferta.disponible &&
-                                    precioConvertido !== null &&
-                                    precioConvertido !== undefined &&
-                                    oferta.moneda !== monedaVisualizacion && (
-                                      <span className="block text-[10px] font-medium text-slate-400">
-                                        ≈{' '}
+                                    oferta.precioBaseEnARS !== null && (
+                                      <span className="block text-[11px] font-medium text-slate-500">
                                         {formatearMoneda(
-                                          precioConvertido,
-                                          monedaVisualizacion,
+                                          oferta.precioBaseEnARS,
+                                          'ARS',
                                         )}
                                       </span>
                                     )}
@@ -980,9 +1024,12 @@ export function CatalogSection({
                                     <span className="block text-[10px] text-slate-500">
                                       {oferta.precio12 !== null
                                         ? `12+ ${formatearMoneda(
-                                            oferta.precio12,
-                                            oferta.moneda,
-                                          )}`
+                                            oferta.precio12EnUSD ?? oferta.precio12,
+                                            'USD',
+                                          )} (${formatearMoneda(
+                                            oferta.precio12EnARS ?? (oferta.precio12 * dolarDelDia),
+                                            'ARS',
+                                          )})`
                                         : ''}
                                       {oferta.precio12 !== null &&
                                       oferta.precio24 !== null
@@ -990,9 +1037,12 @@ export function CatalogSection({
                                         : ''}
                                       {oferta.precio24 !== null
                                         ? `24+ ${formatearMoneda(
-                                            oferta.precio24,
-                                            oferta.moneda,
-                                          )}`
+                                            oferta.precio24EnUSD ?? oferta.precio24,
+                                            'USD',
+                                          )} (${formatearMoneda(
+                                            oferta.precio24EnARS ?? (oferta.precio24 * dolarDelDia),
+                                            'ARS',
+                                          )})`
                                         : ''}
                                     </span>
                                   )}
@@ -1028,14 +1078,16 @@ export function CatalogSection({
                       <td className="px-3 py-3">
                         {item.tieneStockDisponible &&
                         mejorOferta &&
-                        mejorPrecioMostrado !== null ? (
+                        item.mejorPrecioUSD !== null ? (
                           <div className="min-w-[130px]">
                             <span className="text-[13px] font-extrabold text-slate-900">
-                              {formatearMoneda(
-                                mejorPrecioMostrado,
-                                monedaVisualizacion,
-                              )}
+                              {formatearMoneda(item.mejorPrecioUSD, 'USD')}
                             </span>
+                            {item.mejorPrecioARS !== null && (
+                              <span className="block text-[11px] font-bold text-slate-700">
+                                {formatearMoneda(item.mejorPrecioARS, 'ARS')}
+                              </span>
+                            )}
                             <span className="block text-[11px] font-semibold text-emerald-700">
                               Mejor oferta · {mejorProveedor}
                             </span>
@@ -1045,10 +1097,14 @@ export function CatalogSection({
                               item.proveedorSegundoMasBarato && (
                                 <span
                                   title={
-                                    ahorroArbitrajeMostrado !== null
+                                    item.ahorroArbitrajeUSD !== null &&
+                                    item.ahorroArbitrajeARS !== null
                                       ? `Ahorro unitario: ${formatearMoneda(
-                                          ahorroArbitrajeMostrado,
-                                          monedaVisualizacion,
+                                          item.ahorroArbitrajeUSD,
+                                          'USD',
+                                        )} / ${formatearMoneda(
+                                          item.ahorroArbitrajeARS,
+                                          'ARS',
                                         )}`
                                       : undefined
                                   }
@@ -1061,15 +1117,20 @@ export function CatalogSection({
                                 </span>
                               )}
 
-                            {costo100MlMostrado !== null && (
-                                <span className="block text-[10px] text-slate-400">
-                                  {formatearMoneda(
-                                    costo100MlMostrado,
-                                    monedaVisualizacion,
-                                  )}
-                                  /100ml
-                                </span>
-                              )}
+                            {item.mejorCostoPor100MlUSD !== null && (
+                              <span className="block text-[10px] text-slate-400">
+                                {formatearMoneda(
+                                  item.mejorCostoPor100MlUSD,
+                                  'USD',
+                                )}
+                                {item.mejorCostoPor100MlARS !== null &&
+                                  ` (${formatearMoneda(
+                                    item.mejorCostoPor100MlARS,
+                                    'ARS',
+                                  )})`}
+                                /100ml
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-[11px] text-slate-400">
@@ -1102,18 +1163,17 @@ export function CatalogSection({
                                         setEditandoPrecioId(null)
                                       }
                                     }}
-                                    className="h-6 w-20 rounded border border-violet-300 bg-white px-1.5 text-[11px] font-semibold text-slate-800 outline-none"
+                                    placeholder="ARS"
+                                    className="h-7 w-20 rounded border border-violet-300 bg-white px-2 text-xs font-semibold text-slate-800 outline-none"
+                                    autoFocus
                                   />
                                   <button
                                     type="button"
-                                    disabled={
-                                      guardandoPrecioId === item.producto_id
-                                    }
                                     onClick={() =>
                                       void confirmarPrecioManualFila(item)
                                     }
-                                    title="Guardar precio manual en Supabase"
-                                    className="flex size-6 items-center justify-center rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                    title="Guardar"
+                                    className="flex size-6 items-center justify-center rounded bg-violet-600 text-white hover:bg-violet-700"
                                   >
                                     <Check size={11} />
                                   </button>
@@ -1127,51 +1187,56 @@ export function CatalogSection({
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex flex-wrap items-center gap-1">
-                                  <span className="text-[13px] font-bold text-slate-900">
-                                    PVP:{' '}
-                                    {formatearMoneda(
-                                      monedaVisualizacion === 'USD'
-                                        ? rentabilidadProducto.precioVentaSugeridoUSD
-                                        : rentabilidadProducto.precioVentaSugeridoARS,
-                                      monedaVisualizacion,
-                                    )}
-                                  </span>
-                                  {rentabilidadProducto.esPrecioManual && (
-                                    <span className="rounded bg-violet-100 px-1 py-0.2 text-[8px] font-bold uppercase text-violet-700">
-                                      Manual
+                                <div className="flex flex-col items-start gap-0.5">
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <span className="text-[13px] font-bold text-slate-900">
+                                      PVP: {formatearMoneda(
+                                        rentabilidadProducto.precioVentaSugeridoUSD,
+                                        'USD',
+                                      )}
                                     </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      iniciarEdicionPrecioManual(
-                                        item,
-                                        rentabilidadProducto.precioVentaSugeridoARS,
-                                      )
-                                    }
-                                    title="Fijar precio de venta manual (ARS)"
-                                    aria-label={`Fijar precio manual de ${item.nombre}`}
-                                    className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-violet-700"
-                                  >
-                                    <Pencil size={10} />
-                                  </button>
-                                  {rentabilidadProducto.esPrecioManual && (
+                                    {rentabilidadProducto.esPrecioManual && (
+                                      <span className="rounded bg-violet-100 px-1 py-0.2 text-[8px] font-bold uppercase text-violet-700">
+                                        Manual
+                                      </span>
+                                    )}
                                     <button
                                       type="button"
-                                      disabled={
-                                        guardandoPrecioId === item.producto_id
-                                      }
                                       onClick={() =>
-                                        void limpiarPrecioManualFila(item)
+                                        iniciarEdicionPrecioManual(
+                                          item,
+                                          rentabilidadProducto.precioVentaSugeridoARS,
+                                        )
                                       }
-                                      title="Volver al precio automático por fórmula"
-                                      aria-label={`Restaurar precio automático de ${item.nombre}`}
-                                      className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                                      title="Fijar precio de venta manual (ARS)"
+                                      aria-label={`Fijar precio manual de ${item.nombre}`}
+                                      className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-violet-700"
                                     >
-                                      <RotateCcw size={10} />
+                                      <Pencil size={10} />
                                     </button>
-                                  )}
+                                    {rentabilidadProducto.esPrecioManual && (
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          guardandoPrecioId === item.producto_id
+                                        }
+                                        onClick={() =>
+                                          void limpiarPrecioManualFila(item)
+                                        }
+                                        title="Volver al precio automático por fórmula"
+                                        aria-label={`Restaurar precio automático de ${item.nombre}`}
+                                        className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                                      >
+                                        <RotateCcw size={10} />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] font-bold text-slate-700">
+                                    {formatearMoneda(
+                                      rentabilidadProducto.precioVentaSugeridoARS,
+                                      'ARS',
+                                    )}
+                                  </span>
                                 </div>
                               )}
 
@@ -1186,13 +1251,13 @@ export function CatalogSection({
                                   ? '+'
                                   : ''}
                                 {formatearMoneda(
-                                  monedaVisualizacion === 'USD'
-                                    ? rentabilidadProducto.gananciaNetaUSD
-                                    : rentabilidadProducto.gananciaNetaARS,
-                                  monedaVisualizacion,
+                                  rentabilidadProducto.gananciaNetaUSD,
+                                  'USD',
                                 )}{' '}
-                                ({rentabilidadProducto.roiPorcentaje.toFixed(0)}%
-                                ROI)
+                                ({formatearMoneda(
+                                  rentabilidadProducto.gananciaNetaARS,
+                                  'ARS',
+                                )}) · {rentabilidadProducto.roiPorcentaje.toFixed(0)}% ROI
                               </span>
 
                               <a

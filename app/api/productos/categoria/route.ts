@@ -5,18 +5,21 @@ import {
 } from '@/lib/supabase/cliente'
 import {
   esCategoriaPerfumeValida,
+  esTipoProductoValido,
   type CategoriaPerfume,
+  type TipoProducto,
 } from '@/types/perfumeria'
 
 interface CuerpoActualizarCategoria {
   productoId?: unknown
   categoria?: unknown
+  tipo?: unknown
 }
 
 /**
  * POST /api/productos/categoria
  *
- * Actualiza `categoria` ('Arabe', 'Premium' o null) de un perfume en `catalogo_productos`.
+ * Actualiza `categoria` y/o `tipo` de un producto en `catalogo_productos`.
  */
 export async function POST(request: Request) {
   if (!estaSupabaseConfigurado()) {
@@ -41,34 +44,62 @@ export async function POST(request: Request) {
     )
   }
 
-  let categoriaFinal: CategoriaPerfume | null = null
-  if (
-    cuerpo.categoria !== null &&
-    cuerpo.categoria !== undefined &&
-    cuerpo.categoria !== ''
-  ) {
-    if (!esCategoriaPerfumeValida(cuerpo.categoria)) {
+  const camposActualizar: {
+    categoria?: CategoriaPerfume | null
+    tipo?: TipoProducto
+  } = {}
+
+  if ('categoria' in cuerpo) {
+    let categoriaFinal: CategoriaPerfume | null = null
+    if (
+      cuerpo.categoria !== null &&
+      cuerpo.categoria !== undefined &&
+      cuerpo.categoria !== ''
+    ) {
+      if (!esCategoriaPerfumeValida(cuerpo.categoria)) {
+        return NextResponse.json(
+          {
+            error:
+              'La categoría debe ser "Arabe", "Nicho", "Disenador", "Catalogo", "Asiatico" o null.',
+          },
+          { status: 400 },
+        )
+      }
+      categoriaFinal = cuerpo.categoria
+    }
+    camposActualizar.categoria = categoriaFinal
+  }
+
+  if ('tipo' in cuerpo) {
+    if (!esTipoProductoValido(cuerpo.tipo)) {
       return NextResponse.json(
         {
           error:
-            'La categoría debe ser "Arabe", "Nicho", "Disenador", "Catalogo", "Asiatico" o null.',
+            'El tipo debe ser "Perfume", "Kit", "Body Splash", "Desodorante", "Crema", "Aceite" u "Otro".',
         },
         { status: 400 },
       )
     }
-    categoriaFinal = cuerpo.categoria
+    camposActualizar.tipo = cuerpo.tipo
+  }
+
+  if (Object.keys(camposActualizar).length === 0) {
+    return NextResponse.json(
+      { error: 'Indicá "categoria" o "tipo" para actualizar.' },
+      { status: 400 },
+    )
   }
 
   const supabaseAdmin = crearClienteSupabaseAdmin()
   const { error } = await supabaseAdmin
     .from('catalogo_productos')
-    .update({ categoria: categoriaFinal })
+    .update(camposActualizar)
     .eq('id', productoId)
 
   if (error) {
     return NextResponse.json(
       {
-        error: `No se pudo actualizar la categoría del producto ${productoId}: ${error.message}`,
+        error: `No se pudo actualizar el producto ${productoId}: ${error.message}`,
       },
       { status: 500 },
     )
@@ -77,6 +108,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     productoId,
-    categoria: categoriaFinal,
+    ...camposActualizar,
   })
 }

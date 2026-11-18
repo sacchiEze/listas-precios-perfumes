@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
   esCategoriaPerfumeValida,
+  esTipoProductoValido,
   FILTROS_CATALOGO_INICIALES,
   normalizarClaveMarca,
   TAMANO_PAGINA_INICIAL,
@@ -74,6 +75,10 @@ interface EstadoConfiguracion extends ConfiguracionRentabilidad {
   historySupplierTab: 'GLOBAL' | string
   /** Categoría asignada por marca (clave normalizada -> categoría) */
   categoriasPorMarca: Record<string, CategoriaPerfume | null>
+  /** Tipo/subcategoría asignado manualmente por producto (productoId -> TipoProducto) */
+  tiposPorProducto: Record<number, TipoProducto>
+  /** Tipo/subcategoría asignado manualmente por marca (clave normalizada -> TipoProducto) */
+  tiposPorMarca: Record<string, TipoProducto>
   /** Marcas eliminadas permanentemente (clave normalizada -> nombre original) */
   marcasEliminadas: Record<string, string>
   setDolarDelDia: (nuevoValor: number) => void
@@ -115,6 +120,8 @@ interface EstadoConfiguracion extends ConfiguracionRentabilidad {
   setMostrarRentabilidadEnCatalogo: (mostrar: boolean) => void
   restaurarRentabilidadPorDefecto: () => void
   setCategoriaMarca: (marca: string, categoria: CategoriaPerfume | null) => void
+  setTipoProducto: (productoId: number, tipo: TipoProducto) => void
+  setTipoMarca: (marca: string, tipo: TipoProducto) => void
   eliminarMarcaParaSiempre: (marca: string) => void
   restaurarMarcaEliminada: (marcaNorm: string) => void
   sincronizarConfiguracionMarcasDesdeDB: (registros: ConfiguracionMarca[]) => void
@@ -191,6 +198,8 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
       productoHistorialId: null,
       historySupplierTab: 'GLOBAL',
       categoriasPorMarca: {},
+      tiposPorProducto: {},
+      tiposPorMarca: {},
       marcasEliminadas: {},
       ...CONFIG_RENTABILIDAD_INICIAL,
 
@@ -417,6 +426,28 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
         }))
       },
 
+      setTipoProducto: (productoId: number, tipo: TipoProducto) => {
+        if (!Number.isInteger(productoId) || productoId <= 0) return
+        if (!esTipoProductoValido(tipo)) return
+        set((estado) => ({
+          tiposPorProducto: {
+            ...estado.tiposPorProducto,
+            [productoId]: tipo,
+          },
+        }))
+      },
+
+      setTipoMarca: (marca: string, tipo: TipoProducto) => {
+        const clave = normalizarClaveMarca(marca)
+        if (!clave || !esTipoProductoValido(tipo)) return
+        set((estado) => ({
+          tiposPorMarca: {
+            ...estado.tiposPorMarca,
+            [clave]: tipo,
+          },
+        }))
+      },
+
       eliminarMarcaParaSiempre: (marca: string) => {
         const marcaLimpia = marca.trim()
         const clave = normalizarClaveMarca(marcaLimpia)
@@ -570,6 +601,18 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
             !Array.isArray(p.categoriasPorMarca)
               ? p.categoriasPorMarca
               : currentState.categoriasPorMarca,
+          tiposPorProducto:
+            p.tiposPorProducto &&
+            typeof p.tiposPorProducto === 'object' &&
+            !Array.isArray(p.tiposPorProducto)
+              ? p.tiposPorProducto
+              : currentState.tiposPorProducto,
+          tiposPorMarca:
+            p.tiposPorMarca &&
+            typeof p.tiposPorMarca === 'object' &&
+            !Array.isArray(p.tiposPorMarca)
+              ? p.tiposPorMarca
+              : currentState.tiposPorMarca,
           marcasEliminadas:
             p.marcasEliminadas &&
             typeof p.marcasEliminadas === 'object' &&

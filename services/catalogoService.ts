@@ -7,6 +7,7 @@ import type {
   HistorialPrecioFila,
   MapaVariacionesPrecios,
   PuntoHistorialGrafico,
+  TipoProducto,
 } from '@/types/perfumeria'
 
 const TAMANO_PAGINA_SUPABASE = 1000
@@ -315,7 +316,39 @@ export async function actualizarPrecioVentaManualProducto(
 }
 
 /**
- * Actualiza la categoría ('Arabe', 'Premium' o null) de un perfume en `catalogo_productos`.
+ * Actualiza el tipo / subcategoría ('Perfume', 'Kit', 'Body Splash', 'Desodorante', 'Crema', 'Aceite', 'Otro')
+ * de un producto en `catalogo_productos`.
+ */
+export async function actualizarTipoProducto(
+  productoId: number,
+  tipo: TipoProducto,
+): Promise<void> {
+  if (!estaSupabaseConfigurado()) {
+    return
+  }
+
+  const respuesta = await fetch('/api/productos/categoria', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productoId, tipo }),
+  })
+
+  if (!respuesta.ok) {
+    let mensajeError = `Error HTTP ${respuesta.status}`
+    try {
+      const datos = (await respuesta.json()) as { error?: string }
+      if (datos?.error) {
+        mensajeError = datos.error
+      }
+    } catch {
+      // Mantenemos el mensaje por estado HTTP
+    }
+    throw new Error(mensajeError)
+  }
+}
+
+/**
+ * Actualiza la categoría de un perfume en `catalogo_productos`.
  */
 export async function actualizarCategoriaProducto(
   productoId: number,
@@ -395,9 +428,10 @@ export async function fusionarProductos(
 }
 
 async function solicitarApiMarcas(cuerpo: {
-  accion: 'categoria' | 'eliminar' | 'restaurar'
+  accion: 'categoria' | 'tipo' | 'eliminar' | 'restaurar'
   marca: string
   categoria?: CategoriaPerfume | null
+  tipo?: TipoProducto
 }): Promise<void> {
   if (!estaSupabaseConfigurado()) return
 
@@ -442,6 +476,16 @@ export async function guardarCategoriaMarcaDB(
   categoria: CategoriaPerfume | null,
 ): Promise<void> {
   await solicitarApiMarcas({ accion: 'categoria', marca, categoria })
+}
+
+/**
+ * Persiste el tipo/subcategoría para todos los productos de una marca en Supabase.
+ */
+export async function guardarTipoMarcaDB(
+  marca: string,
+  tipo: TipoProducto,
+): Promise<void> {
+  await solicitarApiMarcas({ accion: 'tipo', marca, tipo })
 }
 
 /**

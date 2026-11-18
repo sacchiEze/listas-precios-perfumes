@@ -28,6 +28,8 @@ export interface OpcionesExtrasCatalogo {
   idsFaltaReponer?: Set<number>
   configRentabilidad?: ConfiguracionRentabilidad
   categoriasPorMarca?: Record<string, CategoriaPerfume | null>
+  tiposPorProducto?: Record<number, TipoProducto>
+  tiposPorMarca?: Record<string, TipoProducto>
   marcasEliminadas?: Record<string, string>
 }
 
@@ -305,6 +307,8 @@ export function useCatalogoPerfumes(
   const configRentabilidad =
     opcionesExtras?.configRentabilidad ?? CONFIG_RENTABILIDAD_INICIAL
   const categoriasPorMarca = opcionesExtras?.categoriasPorMarca
+  const tiposPorProducto = opcionesExtras?.tiposPorProducto
+  const tiposPorMarca = opcionesExtras?.tiposPorMarca
   const marcasEliminadas = opcionesExtras?.marcasEliminadas
 
   const {
@@ -334,19 +338,30 @@ export function useCatalogoPerfumes(
       const categoriaResuelta =
         categoriaMarca !== undefined ? categoriaMarca : categoriaFila
 
+      const tipoProductoOverride =
+        tiposPorProducto && fila.producto_id in tiposPorProducto
+          ? tiposPorProducto[fila.producto_id]
+          : undefined
+      const tipoMarcaOverride =
+        tiposPorMarca && claveMarca && claveMarca in tiposPorMarca
+          ? tiposPorMarca[claveMarca]
+          : undefined
+      const tipoResuelto: TipoProducto =
+        tipoProductoOverride ?? tipoMarcaOverride ?? fila.tipo
+
       if (fila.proveedor) conjuntoProveedores.add(fila.proveedor)
       if (fila.marca) conjuntoMarcas.add(fila.marca)
-      if (fila.tipo) conjuntoTipos.add(fila.tipo)
+      if (tipoResuelto) conjuntoTipos.add(tipoResuelto)
 
       let producto = mapaProductos.get(fila.producto_id)
-      const esDesodorante = fila.tipo === 'Desodorante'
+      const esDesodorante = tipoResuelto === 'Desodorante'
       if (!producto) {
         producto = {
           producto_id: fila.producto_id,
           ean6: fila.ean6,
           marca: fila.marca,
           nombre: fila.nombre,
-          tipo: fila.tipo,
+          tipo: tipoResuelto,
           concentracion: fila.concentracion,
           ml: fila.ml,
           genero: fila.genero,
@@ -435,6 +450,8 @@ export function useCatalogoPerfumes(
     cotizacionSegura,
     mapaVariaciones,
     categoriasPorMarca,
+    tiposPorProducto,
+    tiposPorMarca,
     marcasEliminadas,
   ])
 

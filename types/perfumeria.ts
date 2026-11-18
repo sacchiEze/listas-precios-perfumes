@@ -14,6 +14,38 @@ export type TipoProducto =
   | 'Aceite'
   | 'Otro'
 
+/** Opciones de subcategoría/tipo de producto con su etiqueta legible para la interfaz */
+export const TIPOS_PRODUCTO_OPCIONES: ReadonlyArray<{
+  valor: TipoProducto
+  etiqueta: string
+}> = [
+  { valor: 'Perfume', etiqueta: 'Perfume' },
+  { valor: 'Kit', etiqueta: 'Kit' },
+  { valor: 'Body Splash', etiqueta: 'Body Splash' },
+  { valor: 'Desodorante', etiqueta: 'Desodorante' },
+  { valor: 'Crema', etiqueta: 'Crema' },
+  { valor: 'Aceite', etiqueta: 'Aceite' },
+  { valor: 'Otro', etiqueta: 'Otros' },
+]
+
+/** Valida en tiempo de ejecución si un valor corresponde a un tipo de producto admitido */
+export function esTipoProductoValido(valor: unknown): valor is TipoProducto {
+  return (
+    valor === 'Perfume' ||
+    valor === 'Kit' ||
+    valor === 'Body Splash' ||
+    valor === 'Desodorante' ||
+    valor === 'Crema' ||
+    valor === 'Aceite' ||
+    valor === 'Otro'
+  )
+}
+
+/** Devuelve la etiqueta legible de un tipo de producto en la UI */
+export function etiquetaTipoProducto(tipo: TipoProducto): string {
+  return tipo === 'Otro' ? 'Otros' : tipo
+}
+
 /** Concentraciones posibles de una fragancia */
 export type ConcentracionPerfume = 'EDP' | 'EDT' | 'Parfum' | 'Extrait' | 'N/A'
 

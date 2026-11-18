@@ -106,28 +106,30 @@ import {
   evaluarAlertasWatchlist,
   useWatchlistStore,
 } from '@/store/useWatchlistStore'
-import type {
-  AlertaWatchlistEvaluada,
-  CategoriaPerfume,
-  ConfiguracionRentabilidad,
-  CotizacionesDolarDia,
-  CriterioOrdenamiento,
-  FilaVistaComparador,
-  FiltrosCatalogo,
-  FiltroInteligenciaPrecios,
-  GeneroPerfume,
-  ItemWatchlist,
-  MapaVariacionesPrecios,
-  ModoEscalaMayorista,
-  Moneda,
-  OfertaProveedor,
-  ProductoComparado,
-  PuntoHistorialGrafico,
-  RegistroStockPropio,
-  ResultadoSincronizacionImagenes,
-  ResumenPrevisualizacionImportacion,
-  TipoCotizacionDolar,
-  TipoProducto,
+import {
+  esTipoProductoValido,
+  TIPOS_PRODUCTO_OPCIONES,
+  type AlertaWatchlistEvaluada,
+  type CategoriaPerfume,
+  type ConfiguracionRentabilidad,
+  type CotizacionesDolarDia,
+  type CriterioOrdenamiento,
+  type FilaVistaComparador,
+  type FiltrosCatalogo,
+  type FiltroInteligenciaPrecios,
+  type GeneroPerfume,
+  type ItemWatchlist,
+  type MapaVariacionesPrecios,
+  type ModoEscalaMayorista,
+  type Moneda,
+  type OfertaProveedor,
+  type ProductoComparado,
+  type PuntoHistorialGrafico,
+  type RegistroStockPropio,
+  type ResultadoSincronizacionImagenes,
+  type ResumenPrevisualizacionImportacion,
+  type TipoCotizacionDolar,
+  type TipoProducto,
 } from '@/types/perfumeria'
 import {
   type VistaActiva,
@@ -185,6 +187,7 @@ export function CatalogSection({
   onAbrirRentabilidad,
   onAbrirImportador,
   onGuardarPrecioManual,
+  onCambiarTipoProducto,
   onEditarMarca,
   onFusionar,
   cargandoCatalogo,
@@ -249,6 +252,10 @@ export function CatalogSection({
     producto: ProductoComparado,
     nuevoPrecioARS: number | null,
   ) => Promise<void>
+  onCambiarTipoProducto: (
+    producto: ProductoComparado,
+    nuevoTipo: TipoProducto,
+  ) => Promise<void> | void
   cargandoCatalogo: boolean
   onEditarMarca: (marca: string) => void
   onFusionar: (producto: ProductoComparado) => void
@@ -1146,11 +1153,30 @@ export function CatalogSection({
                             <Pencil size={9} className="opacity-65" />
                           </button>
                         </div>
-                        <span
-                          className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-medium ${estiloTipo.badgeClass}`}
-                        >
-                          {item.tipo}
-                        </span>
+                        <div className="relative inline-flex items-center">
+                          <select
+                            aria-label={`Cambiar tipo o subcategoría de ${item.marca} ${item.nombre}`}
+                            title="Cambiar subcategoría del producto (Perfume, Kit, Crema, Aceite, Otros...)"
+                            value={item.tipo}
+                            onChange={(event) => {
+                              const val = event.target.value
+                              if (esTipoProductoValido(val) && val !== item.tipo) {
+                                void onCambiarTipoProducto(item, val)
+                              }
+                            }}
+                            className={`h-6 cursor-pointer appearance-none rounded-md border pl-2 pr-5 text-[11px] font-medium outline-none transition hover:opacity-85 ${estiloTipo.badgeClass}`}
+                          >
+                            {TIPOS_PRODUCTO_OPCIONES.map((op) => (
+                              <option key={op.valor} value={op.valor}>
+                                {op.etiqueta}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                            size={10}
+                            className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-65"
+                          />
+                        </div>
                       </td>
 
                       <td className={`px-4 py-1.5 sm:px-5 ${estiloTipo.cellClass}`}>

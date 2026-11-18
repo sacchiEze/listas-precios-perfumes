@@ -88,9 +88,11 @@ import {
 import {
   actualizarImagenProducto,
   actualizarPrecioVentaManualProducto,
+  actualizarTipoProducto,
   eliminarMarcaParaSiempreDB,
   fusionarProductos,
   guardarCategoriaMarcaDB,
+  guardarTipoMarcaDB,
   obtenerAliasProductos,
   obtenerConfiguracionMarcas,
   obtenerHistorialPorProducto,
@@ -120,6 +122,7 @@ import {
   useWatchlistStore,
 } from '@/store/useWatchlistStore'
 import {
+  etiquetaTipoProducto,
   normalizarClaveMarca,
   type AlertaWatchlistEvaluada,
   type CategoriaPerfume,
@@ -290,6 +293,12 @@ export function PerfumeWorkspace() {
   const categoriasPorMarcaStore = useConfiguracionStore(
     (estado) => estado.categoriasPorMarca,
   )
+  const tiposPorProductoStore = useConfiguracionStore(
+    (estado) => estado.tiposPorProducto,
+  )
+  const tiposPorMarcaStore = useConfiguracionStore(
+    (estado) => estado.tiposPorMarca,
+  )
   const marcasEliminadasStore = useConfiguracionStore(
     (estado) => estado.marcasEliminadas,
   )
@@ -359,6 +368,10 @@ export function PerfumeWorkspace() {
   const setCategoriaMarca = useConfiguracionStore(
     (estado) => estado.setCategoriaMarca,
   )
+  const setTipoProducto = useConfiguracionStore(
+    (estado) => estado.setTipoProducto,
+  )
+  const setTipoMarca = useConfiguracionStore((estado) => estado.setTipoMarca)
   const eliminarMarcaParaSiempre = useConfiguracionStore(
     (estado) => estado.eliminarMarcaParaSiempre,
   )
@@ -452,6 +465,14 @@ export function PerfumeWorkspace() {
   const categoriasPorMarca = useMemo(
     () => (hidratado ? categoriasPorMarcaStore : {}),
     [hidratado, categoriasPorMarcaStore],
+  )
+  const tiposPorProducto = useMemo(
+    () => (hidratado ? tiposPorProductoStore : {}),
+    [hidratado, tiposPorProductoStore],
+  )
+  const tiposPorMarca = useMemo(
+    () => (hidratado ? tiposPorMarcaStore : {}),
+    [hidratado, tiposPorMarcaStore],
   )
   const marcasEliminadas = useMemo(
     () => (hidratado ? marcasEliminadasStore : {}),
@@ -715,6 +736,8 @@ export function PerfumeWorkspace() {
     mapaVariaciones,
     configRentabilidad,
     categoriasPorMarca,
+    tiposPorProducto,
+    tiposPorMarca,
     marcasEliminadas,
   })
 
@@ -761,6 +784,8 @@ export function PerfumeWorkspace() {
       idsFaltaReponer,
       configRentabilidad,
       categoriasPorMarca,
+      tiposPorProducto,
+      tiposPorMarca,
       marcasEliminadas,
     },
   )
@@ -1127,7 +1152,12 @@ export function PerfumeWorkspace() {
   const resumenMarcasEditables = useMemo<ResumenMarcaEditable[]>(() => {
     const mapa = new Map<
       string,
-      { marca: string; cantidad: number; categoria: CategoriaPerfume | null }
+      {
+        marca: string
+        cantidad: number
+        categoria: CategoriaPerfume | null
+        conteoTipos: Record<string, number>
+      }
     >()
     for (const prod of productosGlobales) {
       const clave = normalizarClaveMarca(prod.marca)
@@ -1140,23 +1170,162 @@ export function PerfumeWorkspace() {
           marca: prod.marca,
           cantidad: 1,
           categoria: catMarca ?? null,
+          conteoTipos: { [prod.tipo]: 1 },
         })
       } else {
         existente.cantidad += 1
         if (!existente.categoria && catMarca) {
           existente.categoria = catMarca
         }
+        existente.conteoTipos[prod.tipo] =
+          (existente.conteoTipos[prod.tipo] ?? 0) + 1
       }
     }
-    return Array.from(mapa.values()).sort((a, b) =>
-      a.marca.localeCompare(b.marca, 'es-AR'),
-    )
-  }, [productosGlobales, categoriasPorMarca])
+    return Array.from(mapa.entries())
+      .map(([clave, info]) => {
+        let tipoPredominante: TipoProducto = 'Perfume'
+        if (clave in tiposPorMarca) {
+          tipoPredominante = tiposPorMarca[clave]
+        } else {
+          let maxConteo = -1
+          for (const [tipo, conteo] of Object.entries(info.conteoTipos)) {
+            if (conteo > maxConteo) {
+              maxConteo = conteo
+              tipoPredominante = tipo as TipoProducto
+            }
+          }
+        }
+        return {
+          marca: info.marca,
+          cantidad: info.cantidad,
+          categoria: info.categoria,
+          tipo: tipoPredominante,
+        }
+      })
+      .sort((a, b) => a.marca.localeCompare(b.marca, 'es-AR'))
+  }, [productosGlobales, categoriasPorMarca, tiposPorMarca])
 
   const abrirEditorMarcas = useCallback((marcaInicial?: string) => {
     setMarcaFiltroModalMarcas(marcaInicial ?? null)
     setModalMarcasAbierto(true)
   }, [])
+
+  const manejarCambiarTipoProducto = useCallback(
+    async (producto: ProductoComparado, nuevoTipo: TipoProducto) => {
+      const tipoAnterior = producto.tipo
+      setTipoProducto(producto.producto_id, nuevoTipo)
+      setFilasCatalogo((previo) =>
+        previo.map((fila) =>
+          fila.producto_id === producto.producto_id
+            ? { ...fila, tipo: nuevoTipo }
+            : fila,
+        ),
+      )
+
+      try {
+        if (!usandoDemo && estaSupabaseConfigurado()) {
+          await actualizarTipoProducto(producto.producto_id, nuevoTipo)
+        }
+        setMensajeSyncFotos(
+          `Subcategoría de «${producto.marca} ${producto.nombre}» cambiada a «${etiquetaTipoProducto(
+            nuevoTipo,
+          )}».`,
+        )
+        setTimeout(() => setMensajeSyncFotos(null), 4000)
+      } catch (error) {
+        setTipoProducto(producto.producto_id, tipoAnterior)
+        setFilasCatalogo((previo) =>
+          previo.map((fila) =>
+            fila.producto_id === producto.producto_id
+              ? { ...fila, tipo: tipoAnterior }
+              : fila,
+          ),
+        )
+        setErrorCatalogo(
+          error instanceof Error
+            ? error.message
+            : `No se pudo actualizar el tipo de ${producto.nombre}.`,
+        )
+      }
+    },
+    [setTipoProducto, usandoDemo],
+  )
+
+  const manejarCambiarTipoMarca = useCallback(
+    async (marca: string, nuevoTipo: TipoProducto) => {
+      const claveMarca = normalizarClaveMarca(marca)
+      if (!claveMarca) return
+
+      const tipoMarcaAnterior =
+        claveMarca in tiposPorMarca ? tiposPorMarca[claveMarca] : undefined
+      const tiposFilasAnteriores = new Map<number, TipoProducto>()
+      const idsMarca = new Set<number>()
+      for (const fila of filasCatalogo) {
+        if (normalizarClaveMarca(fila.marca) === claveMarca) {
+          idsMarca.add(fila.producto_id)
+          if (!tiposFilasAnteriores.has(fila.producto_id)) {
+            tiposFilasAnteriores.set(fila.producto_id, fila.tipo)
+          }
+        }
+      }
+      const overridesProductoAnteriores = { ...tiposPorProducto }
+
+      setTipoMarca(marca, nuevoTipo)
+      setFilasCatalogo((previo) =>
+        previo.map((fila) =>
+          normalizarClaveMarca(fila.marca) === claveMarca
+            ? { ...fila, tipo: nuevoTipo }
+            : fila,
+        ),
+      )
+
+      if (idsMarca.size > 0) {
+        useConfiguracionStore.setState((estado) => {
+          const siguientes = { ...estado.tiposPorProducto }
+          for (const id of idsMarca) delete siguientes[id]
+          return { tiposPorProducto: siguientes }
+        })
+      }
+
+      try {
+        if (!usandoDemo && estaSupabaseConfigurado()) {
+          await guardarTipoMarcaDB(marca, nuevoTipo)
+        }
+        setMensajeSyncFotos(
+          `Subcategoría «${etiquetaTipoProducto(
+            nuevoTipo,
+          )}» aplicada a toda la marca ${marca}.`,
+        )
+        setTimeout(() => setMensajeSyncFotos(null), 4000)
+      } catch (error) {
+        useConfiguracionStore.setState((estado) => {
+          const siguientesTiposMarca = { ...estado.tiposPorMarca }
+          if (tipoMarcaAnterior !== undefined) {
+            siguientesTiposMarca[claveMarca] = tipoMarcaAnterior
+          } else {
+            delete siguientesTiposMarca[claveMarca]
+          }
+          return {
+            tiposPorMarca: siguientesTiposMarca,
+            tiposPorProducto: overridesProductoAnteriores,
+          }
+        })
+        setFilasCatalogo((previo) =>
+          previo.map((fila) => {
+            const anterior = tiposFilasAnteriores.get(fila.producto_id)
+            return anterior ? { ...fila, tipo: anterior } : fila
+          }),
+        )
+        setErrorCatalogo(
+          error instanceof Error
+            ? error.message
+            : `No se pudo actualizar la subcategoría de la marca ${marca}.`,
+        )
+        throw error
+      }
+    },
+    [filasCatalogo, setTipoMarca, tiposPorMarca, tiposPorProducto, usandoDemo],
+  )
 
   const manejarCambiarCategoriaMarca = useCallback(
     async (marca: string, nuevaCategoria: CategoriaPerfume | null) => {
@@ -2918,6 +3087,7 @@ export function PerfumeWorkspace() {
                 onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
                 onAbrirImportador={() => setModalImportadorAbierto(true)}
                 onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
+                onCambiarTipoProducto={manejarCambiarTipoProducto}
                 onEditarMarca={abrirEditorMarcas}
                 onFusionar={setProductoFusionManual}
                 cargandoCatalogo={cargandoCatalogo}
@@ -2973,6 +3143,7 @@ export function PerfumeWorkspace() {
               onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
               onAbrirImportador={() => setModalImportadorAbierto(true)}
               onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
+              onCambiarTipoProducto={manejarCambiarTipoProducto}
               onEditarMarca={abrirEditorMarcas}
               onFusionar={setProductoFusionManual}
               cargandoCatalogo={cargandoCatalogo}
@@ -4248,6 +4419,7 @@ export function PerfumeWorkspace() {
           marcasEliminadas={marcasEliminadas}
           marcaInicialFiltro={marcaFiltroModalMarcas}
           onCambiarCategoriaMarca={manejarCambiarCategoriaMarca}
+          onCambiarTipoMarca={manejarCambiarTipoMarca}
           onEliminarMarca={manejarEliminarMarcaParaSiempre}
           onRestaurarMarca={manejarRestaurarMarca}
           onCerrar={() => {

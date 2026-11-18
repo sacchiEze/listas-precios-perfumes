@@ -5,6 +5,7 @@ import {
 } from '@/lib/supabase/cliente'
 import {
   esCategoriaPerfumeValida,
+  esTipoProductoValido,
   normalizarClaveMarca,
   type CategoriaPerfume,
 } from '@/types/perfumeria'
@@ -13,6 +14,7 @@ interface CuerpoGestionMarca {
   accion?: unknown
   marca?: unknown
   categoria?: unknown
+  tipo?: unknown
 }
 
 function escaparPatronIlike(texto: string): string {
@@ -67,11 +69,15 @@ export async function POST(request: Request) {
   const accion = cuerpo.accion
   if (
     accion !== 'categoria' &&
+    accion !== 'tipo' &&
     accion !== 'eliminar' &&
     accion !== 'restaurar'
   ) {
     return NextResponse.json(
-      { error: 'La acción debe ser "categoria", "eliminar" o "restaurar".' },
+      {
+        error:
+          'La acción debe ser "categoria", "tipo", "eliminar" o "restaurar".',
+      },
       { status: 400 },
     )
   }
@@ -150,6 +156,40 @@ export async function POST(request: Request) {
       marca: marcaLimpia,
       marca_norm: marcaNorm,
       categoria: categoriaFinal,
+    })
+  }
+
+  if (accion === 'tipo') {
+    if (!esTipoProductoValido(cuerpo.tipo)) {
+      return NextResponse.json(
+        {
+          error:
+            'El tipo debe ser "Perfume", "Kit", "Body Splash", "Desodorante", "Crema", "Aceite" u "Otro".',
+        },
+        { status: 400 },
+      )
+    }
+
+    const { error: errorProductos } = await supabaseAdmin
+      .from('catalogo_productos')
+      .update({ tipo: cuerpo.tipo })
+      .ilike('marca', escaparPatronIlike(marcaLimpia))
+
+    if (errorProductos) {
+      return NextResponse.json(
+        {
+          error: `No se pudo actualizar el tipo de los productos de ${marcaLimpia}: ${errorProductos.message}`,
+        },
+        { status: 500 },
+      )
+    }
+
+    return NextResponse.json({
+      ok: true,
+      accion,
+      marca: marcaLimpia,
+      marca_norm: marcaNorm,
+      tipo: cuerpo.tipo,
     })
   }
 

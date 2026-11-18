@@ -104,7 +104,9 @@ import {
 import {
   CATEGORIAS_PERFUME_OPCIONES,
   esCategoriaPerfumeValida,
+  esTipoProductoValido,
   normalizarClaveMarca,
+  TIPOS_PRODUCTO_OPCIONES,
   type AlertaWatchlistEvaluada,
   type CategoriaPerfume,
   type ConfiguracionRentabilidad,
@@ -1493,6 +1495,7 @@ export interface ResumenMarcaEditable {
   marca: string
   cantidad: number
   categoria: CategoriaPerfume | null
+  tipo?: TipoProducto
 }
 
 type FiltroEstadoMarcaModal =
@@ -1506,6 +1509,7 @@ export function ModalEditorMarcas({
   marcasEliminadas,
   marcaInicialFiltro,
   onCambiarCategoriaMarca,
+  onCambiarTipoMarca,
   onEliminarMarca,
   onRestaurarMarca,
   onCerrar,
@@ -1516,6 +1520,10 @@ export function ModalEditorMarcas({
   onCambiarCategoriaMarca: (
     marca: string,
     nuevaCategoria: CategoriaPerfume | null,
+  ) => Promise<void> | void
+  onCambiarTipoMarca?: (
+    marca: string,
+    nuevoTipo: TipoProducto,
   ) => Promise<void> | void
   onEliminarMarca: (marca: string) => Promise<void> | void
   onRestaurarMarca: (marcaNorm: string) => Promise<void> | void
@@ -1885,6 +1893,30 @@ export function ModalEditorMarcas({
                           </button>
                         )
                       })}
+
+                      {onCambiarTipoMarca && (
+                        <select
+                          aria-label={`Subcategoría o tipo para toda la marca ${item.marca}`}
+                          title={`Cambiar subcategoría (Perfume, Kit, Otros...) de todos los productos de ${item.marca}`}
+                          disabled={Boolean(marcaEnProceso)}
+                          value={item.tipo ?? 'Perfume'}
+                          onChange={(event) => {
+                            const val = event.target.value
+                            if (esTipoProductoValido(val)) {
+                              void ejecutarAccionMarca(claveProceso, () =>
+                                onCambiarTipoMarca(item.marca, val),
+                              )
+                            }
+                          }}
+                          className="h-6 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-semibold text-slate-700 outline-none focus:border-violet-400 disabled:opacity-50"
+                        >
+                          {TIPOS_PRODUCTO_OPCIONES.map((op) => (
+                            <option key={op.valor} value={op.valor}>
+                              Tipo: {op.etiqueta}
+                            </option>
+                          ))}
+                        </select>
+                      )}
 
                       {confirmando ? (
                         <div className="ml-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1">

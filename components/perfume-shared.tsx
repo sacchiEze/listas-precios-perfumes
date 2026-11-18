@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -516,6 +516,7 @@ export function ImagenFrasco({
         event.currentTarget.onerror = null
         event.currentTarget.src = '/placeholder.jpg'
       }}
+      style={{ backgroundColor: '#ffffff' }}
       className={`bg-white object-contain p-0.5 ${className}`}
     />
   )

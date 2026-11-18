@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import {
   useCallback,
@@ -1244,7 +1244,8 @@ export function MiniaturaPerfumeEditable({
         aria-expanded={menuAbierto}
         title="Click para subir, recortar o cambiar imagen"
         onClick={alternarMenu}
-        className="group/img relative size-full overflow-hidden rounded-lg border border-slate-200/80 bg-white focus:outline-none"
+        className="group/img relative size-full overflow-hidden rounded-lg border border-slate-200/80 bg-white p-0 focus:outline-none"
+        style={{ backgroundColor: '#ffffff' }}
       >
         <img
           src={producto.imagen_url || '/placeholder.jpg'}
@@ -1256,6 +1257,7 @@ export function MiniaturaPerfumeEditable({
             event.currentTarget.src = '/placeholder.jpg'
           }}
           className="size-full bg-white object-contain p-0.5"
+          style={{ backgroundColor: '#ffffff' }}
         />
         <span
           className={`absolute inset-0 flex items-center justify-center bg-black/50 text-white transition ${

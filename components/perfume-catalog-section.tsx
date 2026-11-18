@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Area,
@@ -89,6 +89,8 @@ import {
 import {
   CONFIG_RENTABILIDAD_INICIAL,
   COTIZACIONES_DOLAR_INICIALES,
+  guardarScrollNavegacion,
+  leerScrollNavegacion,
   useConfiguracionStore,
 } from '@/store/useConfiguracionStore'
 import {
@@ -132,6 +134,7 @@ import {
   obtenerEstiloTipoProducto,
   GENEROS_FILTRO,
   CATEGORIAS_FILTRO,
+  etiquetaCategoriaPerfume,
   obtenerEstiloCategoriaPerfume,
   OPCIONES_ORDENAMIENTO,
   OPCIONES_ESCALA,
@@ -176,7 +179,7 @@ export function CatalogSection({
   onAbrirRentabilidad,
   onAbrirImportador,
   onGuardarPrecioManual,
-  onCambiarCategoria,
+  onEditarMarca,
   onFusionar,
   cargandoCatalogo,
   onAdd,
@@ -239,10 +242,7 @@ export function CatalogSection({
     nuevoPrecioARS: number | null,
   ) => Promise<void>
   cargandoCatalogo: boolean
-  onCambiarCategoria: (
-    producto: ProductoComparado,
-    nuevaCategoria: CategoriaPerfume | null,
-  ) => Promise<void>
+  onEditarMarca: (marca: string) => void
   onFusionar: (producto: ProductoComparado) => void
   onAdd: (producto: ProductoComparado, oferta: OfertaProveedor) => void
   onHistory: (producto: ProductoComparado) => void
@@ -286,7 +286,42 @@ export function CatalogSection({
       ? proveedoresDisponibles
       : [filtros.pestanaActiva]
 
-  const [marcasAbiertas, setMarcasAbiertas] = useState(false)
+  const marcasAbiertas = useConfiguracionStore((estado) => estado.marcasAbiertas)
+  const setMarcasAbiertas = useConfiguracionStore(
+    (estado) => estado.setMarcasAbiertas,
+  )
+  const contenedorTablaRef = useRef<HTMLDivElement | null>(null)
+  const scrollHorizontalRestauradoRef = useRef(false)
+  const tablaVisible = !(cargandoCatalogo && productos.length === 0)
+
+  useEffect(() => {
+    if (!tablaVisible || scrollHorizontalRestauradoRef.current) return
+    const contenedor = contenedorTablaRef.current
+    if (!contenedor) return
+
+    const { scrollLeft } = leerScrollNavegacion()
+    let cancelado = false
+    const rafId = window.requestAnimationFrame(() => {
+      if (cancelado) return
+      if (scrollLeft > 0) {
+        contenedor.scrollLeft = scrollLeft
+      }
+      scrollHorizontalRestauradoRef.current = true
+    })
+
+    return () => {
+      cancelado = true
+      window.cancelAnimationFrame(rafId)
+    }
+  }, [tablaVisible])
+
+  const manejarScrollTablaHorizontal = () => {
+    if (!scrollHorizontalRestauradoRef.current) return
+    const contenedor = contenedorTablaRef.current
+    if (!contenedor) return
+    guardarScrollNavegacion({ scrollLeft: contenedor.scrollLeft })
+  }
+
   const [editandoPrecioId, setEditandoPrecioId] = useState<number | null>(null)
   const [precioManualInput, setPrecioManualInput] = useState<string>('')
   const [guardandoPrecioId, setGuardandoPrecioId] = useState<number | null>(null)
@@ -781,14 +816,18 @@ export function CatalogSection({
         </div>
       )}
 
-      {cargandoCatalogo ? (
+      {cargandoCatalogo && productos.length === 0 ? (
         <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-[12px] text-slate-500">
           <Loader2 size={20} className="animate-spin text-violet-600" />
           <span>Cargando catálogo mayorista...</span>
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div
+            ref={contenedorTablaRef}
+            onScroll={manejarScrollTablaHorizontal}
+            className="overflow-x-auto"
+          >
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr className="bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -894,23 +933,18 @@ export function CatalogSection({
                     >
                       <td className="whitespace-nowrap px-4 py-3 sm:px-5">
                         <div className="mb-1">
-                          <select
-                            aria-label={`Categoría de ${item.marca} ${item.nombre}`}
-                            value={item.categoria ?? ''}
-                            onChange={(event) => {
-                              const val = event.target.value
-                              const nuevaCat: CategoriaPerfume | null =
-                                val === 'Arabe' || val === 'Premium'
-                                  ? val
-                                  : null
-                              void onCambiarCategoria(item, nuevaCat)
-                            }}
-                            className={`h-6 cursor-pointer rounded-md border px-1.5 text-[10px] font-semibold outline-none transition ${obtenerEstiloCategoriaPerfume(item.categoria)}`}
+                          <button
+                            type="button"
+                            onClick={() => onEditarMarca(item.marca)}
+                            title={`Editar categoría de la marca ${item.marca}`}
+                            aria-label={`Editar categoría de la marca ${item.marca}`}
+                            className={`inline-flex h-6 cursor-pointer items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition hover:opacity-85 ${obtenerEstiloCategoriaPerfume(
+                              item.categoria,
+                            )}`}
                           >
-                            <option value="">Sin categoría</option>
-                            <option value="Arabe">Árabe</option>
-                            <option value="Premium">Premium</option>
-                          </select>
+                            <span>{etiquetaCategoriaPerfume(item.categoria)}</span>
+                            <Pencil size={9} className="opacity-65" />
+                          </button>
                         </div>
                         <span
                           className={`inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-medium ${estiloTipo.badgeClass}`}

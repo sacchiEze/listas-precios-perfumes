@@ -2,6 +2,7 @@ import { generarVariacionesRespaldo } from '@/lib/rentabilidad'
 import { estaSupabaseConfigurado, supabase } from '@/lib/supabase/cliente'
 import type {
   CategoriaPerfume,
+  ConfiguracionMarca,
   FilaVistaComparador,
   HistorialPrecioFila,
   MapaVariacionesPrecios,
@@ -391,4 +392,70 @@ export async function fusionarProductos(
     }
     throw new Error(mensajeError)
   }
+}
+
+async function solicitarApiMarcas(cuerpo: {
+  accion: 'categoria' | 'eliminar' | 'restaurar'
+  marca: string
+  categoria?: CategoriaPerfume | null
+}): Promise<void> {
+  if (!estaSupabaseConfigurado()) return
+
+  const respuesta = await fetch('/api/marcas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cuerpo),
+  })
+
+  if (!respuesta.ok) {
+    let mensajeError = `Error HTTP ${respuesta.status}`
+    try {
+      const datos = (await respuesta.json()) as { error?: string }
+      if (datos?.error) mensajeError = datos.error
+    } catch {
+      // Mantenemos el mensaje por estado HTTP
+    }
+    throw new Error(mensajeError)
+  }
+}
+
+/**
+ * Obtiene la configuración persistida de marcas (categoría y bloqueo permanente).
+ */
+export async function obtenerConfiguracionMarcas(): Promise<ConfiguracionMarca[]> {
+  if (!estaSupabaseConfigurado()) return []
+  try {
+    const respuesta = await fetch('/api/marcas', { cache: 'no-store' })
+    if (!respuesta.ok) return []
+    const datos = (await respuesta.json()) as { marcas?: ConfiguracionMarca[] }
+    return datos.marcas ?? []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Persiste la categoría de una marca y la aplica a todos sus productos en Supabase.
+ */
+export async function guardarCategoriaMarcaDB(
+  marca: string,
+  categoria: CategoriaPerfume | null,
+): Promise<void> {
+  await solicitarApiMarcas({ accion: 'categoria', marca, categoria })
+}
+
+/**
+ * Marca una marca como eliminada permanentemente y elimina todos sus productos en Supabase.
+ */
+export async function eliminarMarcaParaSiempreDB(marca: string): Promise<void> {
+  await solicitarApiMarcas({ accion: 'eliminar', marca })
+}
+
+/**
+ * Quita el bloqueo de eliminación permanente de una marca en Supabase.
+ */
+export async function restaurarMarcaEliminadaDB(
+  marcaNorm: string,
+): Promise<void> {
+  await solicitarApiMarcas({ accion: 'restaurar', marca: marcaNorm })
 }

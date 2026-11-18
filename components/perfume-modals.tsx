@@ -42,6 +42,7 @@ import {
   Sparkles,
   Star,
   Sun,
+  Tags,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -100,29 +101,32 @@ import {
   evaluarAlertasWatchlist,
   useWatchlistStore,
 } from '@/store/useWatchlistStore'
-import type {
-  AlertaWatchlistEvaluada,
-  CategoriaPerfume,
-  ConfiguracionRentabilidad,
-  CotizacionesDolarDia,
-  CriterioOrdenamiento,
-  FilaVistaComparador,
-  FiltrosCatalogo,
-  FiltroInteligenciaPrecios,
-  GeneroPerfume,
-  ItemWatchlist,
-  MapaVariacionesPrecios,
-  ModoEscalaMayorista,
-  Moneda,
-  OfertaProveedor,
-  ProductoComparado,
-  PuntoHistorialGrafico,
-  RegistroStockPropio,
-  ResultadoSincronizacionImagenes,
-  ResumenPrevisualizacionImportacion,
-  TipoCotizacionDolar,
-  TipoListaImportacion,
-  TipoProducto,
+import {
+  CATEGORIAS_PERFUME_OPCIONES,
+  esCategoriaPerfumeValida,
+  normalizarClaveMarca,
+  type AlertaWatchlistEvaluada,
+  type CategoriaPerfume,
+  type ConfiguracionRentabilidad,
+  type CotizacionesDolarDia,
+  type CriterioOrdenamiento,
+  type FilaVistaComparador,
+  type FiltrosCatalogo,
+  type FiltroInteligenciaPrecios,
+  type GeneroPerfume,
+  type ItemWatchlist,
+  type MapaVariacionesPrecios,
+  type ModoEscalaMayorista,
+  type Moneda,
+  type OfertaProveedor,
+  type ProductoComparado,
+  type PuntoHistorialGrafico,
+  type RegistroStockPropio,
+  type ResultadoSincronizacionImagenes,
+  type ResumenPrevisualizacionImportacion,
+  type TipoCotizacionDolar,
+  type TipoListaImportacion,
+  type TipoProducto,
 } from '@/types/perfumeria'
 import {
   type VistaActiva,
@@ -133,6 +137,8 @@ import {
   TIPOS_PRODUCTO_DISPONIBLES,
   obtenerEstiloTipoProducto,
   GENEROS_FILTRO,
+  etiquetaCategoriaPerfume,
+  obtenerEstiloCategoriaPerfume,
   OPCIONES_ORDENAMIENTO,
   OPCIONES_ESCALA,
   obtenerColorProveedor,
@@ -959,12 +965,16 @@ export function ImportadorListasModal({
   proveedoresDisponibles,
   productosGlobales,
   alias = [],
+  categoriasPorMarca,
+  marcasEliminadas,
   onImportar,
   onCerrar,
 }: {
   proveedoresDisponibles: string[]
   productosGlobales: ProductoComparado[]
   alias?: AliasImportacion[]
+  categoriasPorMarca?: Record<string, CategoriaPerfume | null>
+  marcasEliminadas?: Record<string, string>
   onImportar: (resumen: ResumenPrevisualizacionImportacion) => Promise<void>
   onCerrar: () => void
 }) {
@@ -995,8 +1005,18 @@ export function ImportadorListasModal({
       productosGlobales,
       tipoLista,
       alias,
+      { categoriasPorMarca, marcasEliminadas },
     )
-  }, [textoLista, proveedorFinal, moneda, productosGlobales, tipoLista, alias])
+  }, [
+    textoLista,
+    proveedorFinal,
+    moneda,
+    productosGlobales,
+    tipoLista,
+    alias,
+    categoriasPorMarca,
+    marcasEliminadas,
+  ])
 
   const itemsConCategoria = useMemo(() => {
     if (!resumen) return []
@@ -1195,28 +1215,21 @@ export function ImportadorListasModal({
 
         <div className="mt-3">
           <span className="text-[11px] font-medium text-slate-600">
-            Tipo de lista (gama de perfumes)
+            Tipo de lista (gama por defecto)
           </span>
-          <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {(
-              [
-                {
-                  valor: 'Arabe',
-                  titulo: 'Todos Árabes',
-                  descripcion: 'Asigna categoría Árabe a toda la lista',
-                },
-                {
-                  valor: 'Premium',
-                  titulo: 'Todos Premium',
-                  descripcion: 'Diseñador y Nicho',
-                },
-                {
-                  valor: 'Mixta',
-                  titulo: 'Lista Mixta',
-                  descripcion: 'Trae ambas gamas; asignás por perfume',
-                },
-              ] as const
-            ).map((opcion) => {
+          <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {[
+              ...CATEGORIAS_PERFUME_OPCIONES.map((op) => ({
+                valor: op.valor as TipoListaImportacion,
+                titulo: `Todos ${op.etiqueta}`,
+                descripcion: `Asigna ${op.etiqueta} a marcas nuevas`,
+              })),
+              {
+                valor: 'Mixta' as TipoListaImportacion,
+                titulo: 'Lista Mixta',
+                descripcion: 'Respeta la columna o asignás por marca',
+              },
+            ].map((opcion) => {
               const activo = tipoLista === opcion.valor
               return (
                 <button
@@ -1398,25 +1411,22 @@ export function ImportadorListasModal({
                               onChange={(e) => {
                                 const val = e.target.value
                                 const nuevaCat: CategoriaPerfume | null =
-                                  val === 'Arabe' || val === 'Premium'
-                                    ? val
-                                    : null
+                                  esCategoriaPerfumeValida(val) ? val : null
                                 setCategoriasEditadas((prev) => ({
                                   ...prev,
                                   [item.fila.lineaNumero]: nuevaCat,
                                 }))
                               }}
-                              className={`h-7 rounded-md border px-1.5 text-[10px] font-semibold outline-none ${
-                                item.fila.categoria === 'Arabe'
-                                  ? 'border-amber-200 bg-amber-50 text-amber-800'
-                                  : item.fila.categoria === 'Premium'
-                                    ? 'border-violet-200 bg-violet-50 text-violet-800'
-                                    : 'border-slate-200 bg-slate-50 text-slate-500'
-                              }`}
+                              className={`h-7 rounded-md border px-1.5 text-[10px] font-semibold outline-none ${obtenerEstiloCategoriaPerfume(
+                                item.fila.categoria,
+                              )}`}
                             >
                               <option value="">Sin categoría</option>
-                              <option value="Arabe">Árabe</option>
-                              <option value="Premium">Premium</option>
+                              {CATEGORIAS_PERFUME_OPCIONES.map((op) => (
+                                <option key={op.valor} value={op.valor}>
+                                  {op.etiqueta}
+                                </option>
+                              ))}
                             </select>
                           </td>
                           <td className="px-3 py-2">
@@ -1472,6 +1482,475 @@ export function ImportadorListasModal({
             {importando
               ? 'Importando...'
               : `Aplicar e importar lista (${resumen?.items.length ?? 0})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export interface ResumenMarcaEditable {
+  marca: string
+  cantidad: number
+  categoria: CategoriaPerfume | null
+}
+
+type FiltroEstadoMarcaModal =
+  | 'TODAS'
+  | 'SIN_CATEGORIA'
+  | CategoriaPerfume
+  | 'ELIMINADAS'
+
+export function ModalEditorMarcas({
+  marcasResumen,
+  marcasEliminadas,
+  marcaInicialFiltro,
+  onCambiarCategoriaMarca,
+  onEliminarMarca,
+  onRestaurarMarca,
+  onCerrar,
+}: {
+  marcasResumen: ResumenMarcaEditable[]
+  marcasEliminadas: Record<string, string>
+  marcaInicialFiltro?: string | null
+  onCambiarCategoriaMarca: (
+    marca: string,
+    nuevaCategoria: CategoriaPerfume | null,
+  ) => Promise<void> | void
+  onEliminarMarca: (marca: string) => Promise<void> | void
+  onRestaurarMarca: (marcaNorm: string) => Promise<void> | void
+  onCerrar: () => void
+}) {
+  const [busqueda, setBusqueda] = useState(marcaInicialFiltro ?? '')
+  const [filtroEstado, setFiltroEstado] =
+    useState<FiltroEstadoMarcaModal>('TODAS')
+  const [confirmandoEliminarMarca, setConfirmandoEliminarMarca] = useState<
+    string | null
+  >(null)
+  const [marcaEnProceso, setMarcaEnProceso] = useState<string | null>(null)
+  const [errorAccion, setErrorAccion] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (marcaInicialFiltro) {
+      setBusqueda(marcaInicialFiltro)
+      setFiltroEstado('TODAS')
+    }
+  }, [marcaInicialFiltro])
+
+  const listaEliminadas = useMemo(
+    () =>
+      Object.entries(marcasEliminadas)
+        .map(([marcaNorm, nombre]) => ({ marcaNorm, nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-AR')),
+    [marcasEliminadas],
+  )
+
+  const conteos = useMemo(() => {
+    const mapa: Record<string, number> = {
+      TODAS: marcasResumen.length,
+      SIN_CATEGORIA: 0,
+      ELIMINADAS: listaEliminadas.length,
+    }
+    for (const op of CATEGORIAS_PERFUME_OPCIONES) {
+      mapa[op.valor] = 0
+    }
+    for (const item of marcasResumen) {
+      if (!item.categoria) {
+        mapa.SIN_CATEGORIA += 1
+      } else if (item.categoria in mapa) {
+        mapa[item.categoria] += 1
+      }
+    }
+    return mapa
+  }, [marcasResumen, listaEliminadas.length])
+
+  const terminoNorm = normalizarClaveMarca(busqueda)
+
+  const marcasFiltradas = useMemo(() => {
+    return marcasResumen.filter((item) => {
+      if (terminoNorm && !normalizarClaveMarca(item.marca).includes(terminoNorm)) {
+        return false
+      }
+      if (filtroEstado === 'SIN_CATEGORIA') {
+        return item.categoria === null
+      }
+      if (esCategoriaPerfumeValida(filtroEstado)) {
+        return item.categoria === filtroEstado
+      }
+      return true
+    })
+  }, [marcasResumen, terminoNorm, filtroEstado])
+
+  const eliminadasFiltradas = useMemo(() => {
+    if (!terminoNorm) return listaEliminadas
+    return listaEliminadas.filter(
+      (item) =>
+        normalizarClaveMarca(item.nombre).includes(terminoNorm) ||
+        item.marcaNorm.includes(terminoNorm),
+    )
+  }, [listaEliminadas, terminoNorm])
+
+  const ejecutarAccionMarca = async (
+    claveProceso: string,
+    accion: () => Promise<void> | void,
+  ) => {
+    setMarcaEnProceso(claveProceso)
+    setErrorAccion(null)
+    try {
+      await accion()
+    } catch (error) {
+      setErrorAccion(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo completar la acción sobre la marca.',
+      )
+    } finally {
+      setMarcaEnProceso(null)
+    }
+  }
+
+  const pildorasFiltro: Array<{
+    id: FiltroEstadoMarcaModal
+    etiqueta: string
+    conteo: number
+  }> = [
+    { id: 'TODAS', etiqueta: 'Todas', conteo: conteos.TODAS },
+    {
+      id: 'SIN_CATEGORIA',
+      etiqueta: 'Sin categoría',
+      conteo: conteos.SIN_CATEGORIA,
+    },
+    ...CATEGORIAS_PERFUME_OPCIONES.map((op) => ({
+      id: op.valor as FiltroEstadoMarcaModal,
+      etiqueta: op.etiqueta,
+      conteo: conteos[op.valor] ?? 0,
+    })),
+    {
+      id: 'ELIMINADAS',
+      etiqueta: 'Eliminadas',
+      conteo: conteos.ELIMINADAS,
+    },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-xs sm:p-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !marcaEnProceso) {
+          onCerrar()
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-modal-editar-marcas"
+        className="dashboard-card dashboard-modal flex max-h-[90vh] w-full max-w-[880px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-violet-600">
+              <Tags size={12} />
+              Gestión de marcas
+            </span>
+            <h3
+              id="titulo-modal-editar-marcas"
+              className="mt-0.5 text-[16px] font-semibold tracking-tight text-slate-900"
+            >
+              Editar categoría por marca o eliminar marcas
+            </h3>
+            <p className="mt-1 text-[11px] text-slate-500">
+              La categoría que asignes a una marca se aplica automáticamente a
+              todos sus perfumes y futuras importaciones.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            disabled={Boolean(marcaEnProceso)}
+            aria-label="Cerrar editor de marcas"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3">
+          <label className="relative block">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(event) => setBusqueda(event.target.value)}
+              placeholder="Buscar marca (ej: Lattafa, Dior, Natura...)"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda('')}
+                aria-label="Limpiar búsqueda de marca"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </label>
+
+          <div className="scrollbar-none flex flex-wrap items-center gap-1.5">
+            {pildorasFiltro.map((pildora) => {
+              const activo = filtroEstado === pildora.id
+              return (
+                <button
+                  key={pildora.id}
+                  type="button"
+                  onClick={() => {
+                    setFiltroEstado(pildora.id)
+                    setConfirmandoEliminarMarca(null)
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                    activo
+                      ? pildora.id === 'ELIMINADAS'
+                        ? 'border-rose-400 bg-rose-600 text-white'
+                        : 'border-violet-300 bg-[#34294d] text-white'
+                      : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{pildora.etiqueta}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
+                      activo
+                        ? 'bg-white/20 text-white'
+                        : 'bg-white text-slate-500 ring-1 ring-slate-200/80'
+                    }`}
+                  >
+                    {pildora.conteo}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {errorAccion && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-[11px] text-rose-700">
+            {errorAccion}
+          </div>
+        )}
+
+        <div className="mt-4 min-h-[260px] flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+          {filtroEstado === 'ELIMINADAS' ? (
+            eliminadasFiltradas.length === 0 ? (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <p className="text-[12px] font-medium text-slate-600">
+                  No hay marcas eliminadas
+                </p>
+                <p className="mt-1 max-w-[340px] text-[11px] text-slate-400">
+                  Cuando eliminás una marca para siempre, queda bloqueada acá para
+                  no volver a aparecer al importar listas.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="px-2 py-1 text-[11px] text-slate-500">
+                  Estas marcas fueron eliminadas para siempre y se omiten
+                  automáticamente en el catálogo y al importar listas nuevas.
+                </p>
+                {eliminadasFiltradas.map((item) => {
+                  const procesando = marcaEnProceso === item.marcaNorm
+                  return (
+                    <div
+                      key={item.marcaNorm}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5"
+                    >
+                      <div>
+                        <span className="text-[12px] font-semibold text-slate-800">
+                          {item.nombre}
+                        </span>
+                        <span className="ml-2 rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">
+                          Bloqueada
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={Boolean(marcaEnProceso)}
+                        onClick={() =>
+                          void ejecutarAccionMarca(item.marcaNorm, () =>
+                            onRestaurarMarca(item.marcaNorm),
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {procesando ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <RotateCcw size={12} />
+                        )}
+                        <span>Permitir de nuevo</span>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          ) : marcasFiltradas.length === 0 ? (
+            <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+              <p className="text-[12px] font-medium text-slate-600">
+                No se encontraron marcas con ese filtro
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setBusqueda('')
+                  setFiltroEstado('TODAS')
+                }}
+                className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Ver todas las marcas
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {marcasFiltradas.map((item) => {
+                const claveProceso = normalizarClaveMarca(item.marca)
+                const procesando = marcaEnProceso === claveProceso
+                const confirmando = confirmandoEliminarMarca === item.marca
+
+                return (
+                  <div
+                    key={item.marca}
+                    className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-[13px] font-semibold text-slate-900">
+                          {item.marca}
+                        </span>
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                          {item.cantidad}{' '}
+                          {item.cantidad === 1 ? 'perfume' : 'perfumes'}
+                        </span>
+                        <span
+                          className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${obtenerEstiloCategoriaPerfume(
+                            item.categoria,
+                          )}`}
+                        >
+                          {etiquetaCategoriaPerfume(item.categoria)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={Boolean(marcaEnProceso)}
+                        onClick={() =>
+                          void ejecutarAccionMarca(claveProceso, () =>
+                            onCambiarCategoriaMarca(item.marca, null),
+                          )
+                        }
+                        className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
+                          item.categoria === null
+                            ? 'border-slate-400 bg-slate-700 text-white'
+                            : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        Sin cat.
+                      </button>
+
+                      {CATEGORIAS_PERFUME_OPCIONES.map((op) => {
+                        const activa = item.categoria === op.valor
+                        return (
+                          <button
+                            key={op.valor}
+                            type="button"
+                            disabled={Boolean(marcaEnProceso)}
+                            onClick={() =>
+                              void ejecutarAccionMarca(claveProceso, () =>
+                                onCambiarCategoriaMarca(item.marca, op.valor),
+                              )
+                            }
+                            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
+                              activa
+                                ? `${obtenerEstiloCategoriaPerfume(
+                                    op.valor,
+                                  )} ring-1 ring-current`
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {op.etiqueta}
+                          </button>
+                        )
+                      })}
+
+                      {confirmando ? (
+                        <div className="ml-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1">
+                          <span className="text-[10px] font-semibold text-rose-700">
+                            ¿Eliminar marca y sus {item.cantidad} perfumes para
+                            siempre?
+                          </span>
+                          <button
+                            type="button"
+                            disabled={Boolean(marcaEnProceso)}
+                            onClick={() =>
+                              void ejecutarAccionMarca(claveProceso, async () => {
+                                await onEliminarMarca(item.marca)
+                                setConfirmandoEliminarMarca(null)
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            {procesando && (
+                              <Loader2 size={10} className="animate-spin" />
+                            )}
+                            Sí, eliminar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(marcaEnProceso)}
+                            onClick={() => setConfirmandoEliminarMarca(null)}
+                            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={Boolean(marcaEnProceso)}
+                          onClick={() =>
+                            setConfirmandoEliminarMarca(item.marca)
+                          }
+                          title={`Eliminar ${item.marca} para siempre`}
+                          aria-label={`Eliminar marca ${item.marca} para siempre`}
+                          className="ml-1 inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50/70 px-2 py-1 text-[10px] font-semibold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          <Trash2 size={11} />
+                          <span>Eliminar</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+          <span className="text-[11px] text-slate-400">
+            {marcasFiltradas.length} de {marcasResumen.length} marcas visibles
+          </span>
+          <button
+            type="button"
+            onClick={onCerrar}
+            disabled={Boolean(marcaEnProceso)}
+            className="primary-action rounded-lg bg-[#34294d] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#45365f] disabled:opacity-50"
+          >
+            Listo
           </button>
         </div>
       </div>

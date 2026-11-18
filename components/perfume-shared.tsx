@@ -125,10 +125,10 @@ import type {
 } from '@/types/perfumeria'
 
 
-export type VistaActiva = 'overview' | 'catalog' | 'history' | 'cart'
+export type { VistaActiva } from '@/types/perfumeria'
+export { TAMANO_PAGINA_INICIAL } from '@/types/perfumeria'
 
 export const OPCIONES_TAMANO_PAGINA = [16, 32, 64, 128] as const
-export const TAMANO_PAGINA_INICIAL = 32
 export const MAX_TAMANO_PAGINA = 128
 export const LIMITE_FILAS_RESUMEN = 15
 
@@ -196,28 +196,49 @@ export const CATEGORIAS_FILTRO: Array<{
 }> = [
   { etiqueta: 'Todas', valor: null },
   { etiqueta: 'Árabe', valor: 'Arabe' },
-  { etiqueta: 'Premium', valor: 'Premium' },
+  { etiqueta: 'Nicho', valor: 'Nicho' },
+  { etiqueta: 'Diseñador', valor: 'Disenador' },
+  { etiqueta: 'Catálogo', valor: 'Catalogo' },
+  { etiqueta: 'Asiático', valor: 'Asiatico' },
   { etiqueta: 'Sin categoría', valor: 'SIN_CATEGORIA' },
 ]
 
 export function etiquetaCategoriaPerfume(
   categoria?: CategoriaPerfume | null,
 ): string {
-  if (categoria === 'Arabe') return 'Árabe'
-  if (categoria === 'Premium') return 'Premium'
-  return 'Sin categoría'
+  switch (categoria) {
+    case 'Arabe':
+      return 'Árabe'
+    case 'Nicho':
+      return 'Nicho'
+    case 'Disenador':
+      return 'Diseñador'
+    case 'Catalogo':
+      return 'Catálogo'
+    case 'Asiatico':
+      return 'Asiático'
+    default:
+      return 'Sin categoría'
+  }
 }
 
 export function obtenerEstiloCategoriaPerfume(
   categoria?: CategoriaPerfume | null,
 ): string {
-  if (categoria === 'Arabe') {
-    return 'border-amber-200 bg-amber-50/90 text-amber-800'
+  switch (categoria) {
+    case 'Arabe':
+      return 'border-amber-200 bg-amber-50/90 text-amber-800'
+    case 'Nicho':
+      return 'border-indigo-200 bg-indigo-50/90 text-indigo-800'
+    case 'Disenador':
+      return 'border-violet-200 bg-violet-50/90 text-violet-800'
+    case 'Catalogo':
+      return 'border-emerald-200 bg-emerald-50/90 text-emerald-800'
+    case 'Asiatico':
+      return 'border-sky-200 bg-sky-50/90 text-sky-800'
+    default:
+      return 'border-slate-200 bg-slate-100 text-slate-500'
   }
-  if (categoria === 'Premium') {
-    return 'border-violet-200 bg-violet-50/90 text-violet-800'
-  }
-  return 'border-slate-200 bg-slate-100 text-slate-500'
 }
 
 export const OPCIONES_ORDENAMIENTO: Array<{

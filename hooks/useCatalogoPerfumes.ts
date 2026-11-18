@@ -3,31 +3,23 @@
 import { useMemo } from 'react'
 import { calcularRentabilidadUnitaria } from '@/lib/rentabilidad'
 import { CONFIG_RENTABILIDAD_INICIAL } from '@/store/useConfiguracionStore'
-import type {
-  ConfiguracionRentabilidad,
-  FilaVistaComparador,
-  FiltrosCatalogo,
-  MapaVariacionesPrecios,
-  Moneda,
-  OfertaProveedor,
-  ProductoComparado,
-  TipoProducto,
-  VariacionPrecioOferta,
+import {
+  esCategoriaPerfumeValida,
+  normalizarClaveMarca,
+  type CategoriaPerfume,
+  type ConfiguracionRentabilidad,
+  type FilaVistaComparador,
+  type FiltrosCatalogo,
+  type MapaVariacionesPrecios,
+  type Moneda,
+  type OfertaProveedor,
+  type ProductoComparado,
+  type TipoProducto,
+  type VariacionPrecioOferta,
 } from '@/types/perfumeria'
 
-/** Estado inicial por defecto para los filtros del catálogo */
-export const FILTROS_CATALOGO_INICIALES: FiltrosCatalogo = {
-  busqueda: '',
-  marcasSeleccionadas: [],
-  tiposSeleccionados: [],
-  genero: null,
-  categoria: null,
-  soloEnStock: false,
-  rangoPrecioARS: [null, null],
-  ordenarPor: 'precio_asc',
-  pestanaActiva: 'GLOBAL',
-  filtroInteligencia: 'TODOS',
-}
+/** Estado inicial por defecto para los filtros del catálogo (reexportado desde types/perfumeria) */
+export { FILTROS_CATALOGO_INICIALES } from '@/types/perfumeria'
 
 export interface OpcionesExtrasCatalogo {
   mapaVariaciones?: MapaVariacionesPrecios
@@ -35,6 +27,8 @@ export interface OpcionesExtrasCatalogo {
   idsAlertasActivas?: Set<number>
   idsFaltaReponer?: Set<number>
   configRentabilidad?: ConfiguracionRentabilidad
+  categoriasPorMarca?: Record<string, CategoriaPerfume | null>
+  marcasEliminadas?: Record<string, string>
 }
 
 interface ResultadoHookCatalogo {
@@ -310,6 +304,8 @@ export function useCatalogoPerfumes(
   const idsFaltaReponer = opcionesExtras?.idsFaltaReponer
   const configRentabilidad =
     opcionesExtras?.configRentabilidad ?? CONFIG_RENTABILIDAD_INICIAL
+  const categoriasPorMarca = opcionesExtras?.categoriasPorMarca
+  const marcasEliminadas = opcionesExtras?.marcasEliminadas
 
   const {
     productosAgrupados,
@@ -323,6 +319,21 @@ export function useCatalogoPerfumes(
     const mapaProductos = new Map<number, ProductoComparado>()
 
     for (const fila of filasCrudas) {
+      const claveMarca = normalizarClaveMarca(fila.marca ?? '')
+      if (marcasEliminadas && claveMarca && claveMarca in marcasEliminadas) {
+        continue
+      }
+
+      const categoriaMarca =
+        categoriasPorMarca && claveMarca && claveMarca in categoriasPorMarca
+          ? categoriasPorMarca[claveMarca]
+          : undefined
+      const categoriaFila = esCategoriaPerfumeValida(fila.categoria)
+        ? fila.categoria
+        : null
+      const categoriaResuelta =
+        categoriaMarca !== undefined ? categoriaMarca : categoriaFila
+
       if (fila.proveedor) conjuntoProveedores.add(fila.proveedor)
       if (fila.marca) conjuntoMarcas.add(fila.marca)
       if (fila.tipo) conjuntoTipos.add(fila.tipo)
@@ -339,7 +350,7 @@ export function useCatalogoPerfumes(
           concentracion: fila.concentracion,
           ml: fila.ml,
           genero: fila.genero,
-          categoria: fila.categoria ?? null,
+          categoria: categoriaResuelta,
           imagen_url: esDesodorante ? null : fila.imagen_url,
           ofertas: {},
           mejorPrecioARS: null,
@@ -371,8 +382,12 @@ export function useCatalogoPerfumes(
         if (!esDesodorante && !producto.imagen_url && fila.imagen_url) {
           producto.imagen_url = fila.imagen_url
         }
-        if (!producto.categoria && fila.categoria) {
-          producto.categoria = fila.categoria
+        if (
+          categoriaMarca === undefined &&
+          !producto.categoria &&
+          categoriaFila
+        ) {
+          producto.categoria = categoriaFila
         }
         if (
           !producto.precioVentaManualARS &&
@@ -415,7 +430,13 @@ export function useCatalogoPerfumes(
         a.localeCompare(b, 'es-AR'),
       ),
     }
-  }, [filasCrudas, cotizacionSegura, mapaVariaciones])
+  }, [
+    filasCrudas,
+    cotizacionSegura,
+    mapaVariaciones,
+    categoriasPorMarca,
+    marcasEliminadas,
+  ])
 
   const productosFiltrados = useMemo(() => {
     const esModoGlobal = filtros.pestanaActiva === 'GLOBAL'

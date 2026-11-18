@@ -21,10 +21,53 @@ export type ConcentracionPerfume = 'EDP' | 'EDT' | 'Parfum' | 'Extrait' | 'N/A'
 export type GeneroPerfume = 'Masculino' | 'Femenino' | 'Unisex'
 
 /** Categorías / gamas de perfumes admitidas */
-export type CategoriaPerfume = 'Arabe' | 'Premium'
+export type CategoriaPerfume =
+  | 'Arabe'
+  | 'Nicho'
+  | 'Disenador'
+  | 'Catalogo'
+  | 'Asiatico'
+
+/** Opciones de categoría con su etiqueta legible para la interfaz */
+export const CATEGORIAS_PERFUME_OPCIONES: ReadonlyArray<{
+  valor: CategoriaPerfume
+  etiqueta: string
+}> = [
+  { valor: 'Arabe', etiqueta: 'Árabe' },
+  { valor: 'Nicho', etiqueta: 'Nicho' },
+  { valor: 'Disenador', etiqueta: 'Diseñador' },
+  { valor: 'Catalogo', etiqueta: 'Catálogo' },
+  { valor: 'Asiatico', etiqueta: 'Asiático' },
+]
+
+/** Valida en tiempo de ejecución si un valor corresponde a una categoría de perfume admitida */
+export function esCategoriaPerfumeValida(
+  valor: unknown,
+): valor is CategoriaPerfume {
+  return (
+    valor === 'Arabe' ||
+    valor === 'Nicho' ||
+    valor === 'Disenador' ||
+    valor === 'Catalogo' ||
+    valor === 'Asiatico'
+  )
+}
+
+/** Normaliza el nombre de una marca para indexarla de forma consistente */
+export function normalizarClaveMarca(marca: string): string {
+  return marca.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** Configuración persistida por marca (categoría asignada y estado de eliminación permanente) */
+export interface ConfiguracionMarca {
+  marca_norm: string
+  marca: string
+  categoria: CategoriaPerfume | null
+  eliminada: boolean
+}
 
 /** Tipo de lista de precios al importar */
-export type TipoListaImportacion = 'Arabe' | 'Premium' | 'Mixta'
+export type TipoListaImportacion = CategoriaPerfume | 'Mixta'
 
 /** Valor de filtro para categoría en el catálogo */
 export type FiltroCategoriaPerfume = CategoriaPerfume | 'SIN_CATEGORIA' | null
@@ -220,6 +263,26 @@ export interface FiltrosCatalogo {
   ordenarPor: CriterioOrdenamiento
   pestanaActiva: 'GLOBAL' | string
   filtroInteligencia: FiltroInteligenciaPrecios
+}
+
+/** Vistas principales disponibles en el espacio de trabajo */
+export type VistaActiva = 'overview' | 'catalog' | 'history' | 'cart'
+
+/** Cantidad inicial de productos por página en el catálogo */
+export const TAMANO_PAGINA_INICIAL = 32
+
+/** Estado inicial por defecto para los filtros del catálogo */
+export const FILTROS_CATALOGO_INICIALES: FiltrosCatalogo = {
+  busqueda: '',
+  marcasSeleccionadas: [],
+  tiposSeleccionados: [],
+  genero: null,
+  categoria: null,
+  soloEnStock: false,
+  rangoPrecioARS: [null, null],
+  ordenarPor: 'precio_asc',
+  pestanaActiva: 'GLOBAL',
+  filtroInteligencia: 'TODOS',
 }
 
 /** Ítem persistido dentro del carrito simulador multi-proveedor */

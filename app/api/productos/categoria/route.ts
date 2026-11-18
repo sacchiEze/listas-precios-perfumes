@@ -3,7 +3,10 @@ import {
   crearClienteSupabaseAdmin,
   estaSupabaseConfigurado,
 } from '@/lib/supabase/cliente'
-import type { CategoriaPerfume } from '@/types/perfumeria'
+import {
+  esCategoriaPerfumeValida,
+  type CategoriaPerfume,
+} from '@/types/perfumeria'
 
 interface CuerpoActualizarCategoria {
   productoId?: unknown
@@ -44,9 +47,12 @@ export async function POST(request: Request) {
     cuerpo.categoria !== undefined &&
     cuerpo.categoria !== ''
   ) {
-    if (cuerpo.categoria !== 'Arabe' && cuerpo.categoria !== 'Premium') {
+    if (!esCategoriaPerfumeValida(cuerpo.categoria)) {
       return NextResponse.json(
-        { error: 'La categoría debe ser "Arabe", "Premium" o null.' },
+        {
+          error:
+            'La categoría debe ser "Arabe", "Nicho", "Disenador", "Catalogo", "Asiatico" o null.',
+        },
         { status: 400 },
       )
     }

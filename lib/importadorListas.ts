@@ -1,18 +1,19 @@
-import type {
-  CategoriaPerfume,
-  ConcentracionPerfume,
-  EstadoCambioImportacion,
-  EstadoStock,
-  FilaImportadaCruda,
-  FilaVistaComparador,
-  GeneroPerfume,
-  ItemPrevisualizacionImportacion,
-  MapaVariacionesPrecios,
-  Moneda,
-  ProductoComparado,
-  ResumenPrevisualizacionImportacion,
-  TipoListaImportacion,
-  TipoProducto,
+import {
+  normalizarClaveMarca,
+  type CategoriaPerfume,
+  type ConcentracionPerfume,
+  type EstadoCambioImportacion,
+  type EstadoStock,
+  type FilaImportadaCruda,
+  type FilaVistaComparador,
+  type GeneroPerfume,
+  type ItemPrevisualizacionImportacion,
+  type MapaVariacionesPrecios,
+  type Moneda,
+  type ProductoComparado,
+  type ResumenPrevisualizacionImportacion,
+  type TipoListaImportacion,
+  type TipoProducto,
 } from '@/types/perfumeria'
 
 /** Nombre alternativo (normalizado) que apunta a un perfume ya existente. */
@@ -217,15 +218,16 @@ export function parsearCategoriaPerfume(
   const norm = normalizarTextoImportacion(valor ?? '')
   if (!norm) return null
   if (norm.includes('arabe') || norm.includes('oriental')) return 'Arabe'
+  if (norm.includes('nicho') || norm.includes('niche')) return 'Nicho'
   if (
-    norm.includes('premium') ||
     norm.includes('disenador') ||
     norm.includes('designer') ||
-    norm.includes('nicho') ||
-    norm.includes('niche')
+    norm.includes('premium')
   ) {
-    return 'Premium'
+    return 'Disenador'
   }
+  if (norm.includes('catalogo')) return 'Catalogo'
+  if (norm.includes('asiatico') || norm.includes('asian')) return 'Asiatico'
   return null
 }
 
@@ -505,9 +507,21 @@ export function generarPrevisualizacionImportacion(
   productosExistentes: ProductoComparado[],
   tipoLista: TipoListaImportacion = 'Arabe',
   alias: AliasImportacion[] = [],
+  opcionesMarcas?: {
+    categoriasPorMarca?: Record<string, CategoriaPerfume | null>
+    marcasEliminadas?: Record<string, string>
+  },
 ): ResumenPrevisualizacionImportacion {
-  const { filas, errores } = parsearTextoListaProveedor(texto)
+  const { filas: filasCrudas, errores } = parsearTextoListaProveedor(texto)
   const proveedorLimpio = proveedor.trim() || 'Nuevo Proveedor'
+  const categoriasPorMarca = opcionesMarcas?.categoriasPorMarca
+  const marcasEliminadas = opcionesMarcas?.marcasEliminadas
+
+  const filas = marcasEliminadas
+    ? filasCrudas.filter(
+        (fila) => !(normalizarClaveMarca(fila.marca) in marcasEliminadas),
+      )
+    : filasCrudas
 
   const porId = new Map<number, ProductoComparado>()
   const porEan = new Map<string, ProductoComparado>()
@@ -553,6 +567,9 @@ export function generarPrevisualizacionImportacion(
   let conteoCambiosStock = 0
   let conteoSinCambios = 0
 
+  const resolverCategoriaLista = (fila: FilaImportadaCruda) =>
+    tipoLista === 'Mixta' ? fila.categoria : tipoLista
+
   const items: ItemPrevisualizacionImportacion[] = filas.map((fila) => {
     let match: ProductoComparado | undefined
 
@@ -573,14 +590,18 @@ export function generarPrevisualizacionImportacion(
       }
     }
 
+    const claveMarcaFila = normalizarClaveMarca(fila.marca)
+    const categoriaMarcaFila =
+      categoriasPorMarca && claveMarcaFila in categoriasPorMarca
+        ? categoriasPorMarca[claveMarcaFila]
+        : undefined
+
     if (!match) {
       conteoNuevosProductos += 1
       const categoriaNueva: CategoriaPerfume | null =
-        tipoLista === 'Arabe'
-          ? 'Arabe'
-          : tipoLista === 'Premium'
-            ? 'Premium'
-            : fila.categoria
+        categoriaMarcaFila !== undefined
+          ? categoriaMarcaFila
+          : resolverCategoriaLista(fila)
       return {
         fila: { ...fila, categoria: categoriaNueva },
         productoExistenteId: null,
@@ -593,13 +614,16 @@ export function generarPrevisualizacionImportacion(
       }
     }
 
+    const claveMarcaMatch = normalizarClaveMarca(match.marca)
+    const categoriaMarcaMatch =
+      categoriasPorMarca && claveMarcaMatch in categoriasPorMarca
+        ? categoriasPorMarca[claveMarcaMatch]
+        : categoriaMarcaFila
+
     const categoriaResuelta: CategoriaPerfume | null =
-      match.categoria ??
-      (tipoLista === 'Arabe'
-        ? 'Arabe'
-        : tipoLista === 'Premium'
-          ? 'Premium'
-          : fila.categoria)
+      categoriaMarcaMatch !== undefined
+        ? categoriaMarcaMatch
+        : match.categoria ?? resolverCategoriaLista(fila)
     const filaResuelta: FilaImportadaCruda = {
       ...fila,
       categoria: categoriaResuelta,

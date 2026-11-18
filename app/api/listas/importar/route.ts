@@ -4,9 +4,12 @@ import {
   crearClienteSupabaseAdmin,
   estaSupabaseConfigurado,
 } from '@/lib/supabase/cliente'
-import type {
-  ItemPrevisualizacionImportacion,
-  Moneda,
+import {
+  esCategoriaPerfumeValida,
+  normalizarClaveMarca,
+  type ConfiguracionMarca,
+  type ItemPrevisualizacionImportacion,
+  type Moneda,
 } from '@/types/perfumeria'
 
 interface CuerpoImportarLista {
@@ -70,12 +73,39 @@ export async function POST(request: Request) {
   const fechaHoy = new Date().toISOString().slice(0, 10)
   const ahoraIso = new Date().toISOString()
 
+  const mapaConfigMarcas = new Map<string, ConfiguracionMarca>()
+  const { data: marcasConfiguradas } = await supabaseAdmin
+    .from('configuracion_marcas')
+    .select('marca_norm, marca, categoria, eliminada')
+  if (Array.isArray(marcasConfiguradas)) {
+    for (const reg of marcasConfiguradas as ConfiguracionMarca[]) {
+      const clave = normalizarClaveMarca(reg.marca_norm || reg.marca)
+      if (clave) {
+        mapaConfigMarcas.set(clave, reg)
+      }
+    }
+  }
+
   let nuevosProductos = 0
   let actualizados = 0
   const idsAsignados: Record<number, number> = {}
 
   for (const item of items) {
     if (!item?.fila || !Number.isFinite(item.fila.precioBase)) continue
+
+    const claveMarca = normalizarClaveMarca(item.fila.marca)
+    const configMarca = mapaConfigMarcas.get(claveMarca)
+    if (configMarca?.eliminada) {
+      continue
+    }
+
+    const categoriaFila = esCategoriaPerfumeValida(item.fila.categoria)
+      ? item.fila.categoria
+      : null
+    const categoriaFinal =
+      configMarca && esCategoriaPerfumeValida(configMarca.categoria)
+        ? configMarca.categoria
+        : categoriaFila
 
     let productoId = item.productoExistenteId
 
@@ -99,7 +129,7 @@ export async function POST(request: Request) {
             concentracion: item.fila.concentracion,
             ml: item.fila.ml,
             genero: item.fila.genero,
-            categoria: item.fila.categoria ?? null,
+            categoria: categoriaFinal,
           })
           .select('id')
           .single()
@@ -118,10 +148,10 @@ export async function POST(request: Request) {
       nuevosProductos += 1
     } else {
       actualizados += 1
-      if (item.fila.categoria === 'Arabe' || item.fila.categoria === 'Premium') {
+      if (esCategoriaPerfumeValida(categoriaFinal)) {
         await supabaseAdmin
           .from('catalogo_productos')
-          .update({ categoria: item.fila.categoria })
+          .update({ categoria: categoriaFinal })
           .eq('id', productoId)
           .is('categoria', null)
       }

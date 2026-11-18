@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Area,
@@ -43,6 +43,7 @@ import {
   Sparkles,
   Star,
   Sun,
+  Tags,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -85,14 +86,17 @@ import {
   type ModoEditorImagen,
 } from '@/components/image-editor-modal'
 import {
-  actualizarCategoriaProducto,
   actualizarImagenProducto,
   actualizarPrecioVentaManualProducto,
+  eliminarMarcaParaSiempreDB,
   fusionarProductos,
+  guardarCategoriaMarcaDB,
   obtenerAliasProductos,
+  obtenerConfiguracionMarcas,
   obtenerHistorialPorProducto,
   obtenerMapaVariacionesPrecios,
   obtenerTodoElCatalogo,
+  restaurarMarcaEliminadaDB,
   subirImagenProductoOptimizada,
 } from '@/services/catalogoService'
 import {
@@ -102,6 +106,8 @@ import {
 import {
   CONFIG_RENTABILIDAD_INICIAL,
   COTIZACIONES_DOLAR_INICIALES,
+  guardarScrollNavegacion,
+  leerScrollNavegacion,
   useConfiguracionStore,
 } from '@/store/useConfiguracionStore'
 import {
@@ -113,9 +119,10 @@ import {
   evaluarAlertasWatchlist,
   useWatchlistStore,
 } from '@/store/useWatchlistStore'
-import type {
-  AlertaWatchlistEvaluada,
-  CategoriaPerfume,
+import {
+  normalizarClaveMarca,
+  type AlertaWatchlistEvaluada,
+  type CategoriaPerfume,
   ConfiguracionRentabilidad,
   CotizacionesDolarDia,
   CriterioOrdenamiento,
@@ -146,6 +153,7 @@ import {
   SUBRAMAS_CATALOGO,
   obtenerEstiloTipoProducto,
   GENEROS_FILTRO,
+  etiquetaCategoriaPerfume,
   OPCIONES_ORDENAMIENTO,
   OPCIONES_ESCALA,
   obtenerColorProveedor,
@@ -162,16 +170,13 @@ import {
   RentabilidadModal,
   AlertaWatchlistModal,
   ImportadorListasModal,
+  ModalEditorMarcas,
+  type ResumenMarcaEditable,
 } from './perfume-modals'
 
 export function PerfumeWorkspace() {
   const [hidratado, setHidratado] = useState(false)
-  const [view, setView] = useState<VistaActiva>('overview')
-  const [isDark, setIsDark] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [historySupplierTab, setHistorySupplierTab] = useState<'GLOBAL' | string>(
-    'GLOBAL',
-  )
+  const scrollRestauradoRef = useRef(false)
 
   // Estado de datos provenientes de Supabase
   const [filasCatalogo, setFilasCatalogo] = useState<FilaVistaComparador[]>([])
@@ -183,13 +188,14 @@ export function PerfumeWorkspace() {
   const [usandoDemo, setUsandoDemo] = useState(false)
 
   // Paneles / modales de Inteligencia de Precios, Rentabilidad e Importador
-  const [monitorTab, setMonitorTab] = useState<
-    'arbitraje' | 'bajaron' | 'watchlist'
-  >('arbitraje')
   const [modalCostoAbierto, setModalCostoAbierto] = useState(false)
   const [modalRentabilidadAbierto, setModalRentabilidadAbierto] =
     useState(false)
   const [modalImportadorAbierto, setModalImportadorAbierto] = useState(false)
+  const [modalMarcasAbierto, setModalMarcasAbierto] = useState(false)
+  const [marcaFiltroModalMarcas, setMarcaFiltroModalMarcas] = useState<
+    string | null
+  >(null)
   const [aliasProductos, setAliasProductos] = useState<AliasImportacion[]>([])
   const [productoFusionManual, setProductoFusionManual] =
     useState<ProductoComparado | null>(null)
@@ -203,35 +209,6 @@ export function PerfumeWorkspace() {
   const [productoAlertaModal, setProductoAlertaModal] =
     useState<ProductoComparado | null>(null)
 
-  // Filtros en memoria
-  const [filtros, setFiltros] = useState<FiltrosCatalogo>(
-    FILTROS_CATALOGO_INICIALES,
-  )
-  const [precioMinInput, setPrecioMinInput] = useState('')
-  const [precioMaxInput, setPrecioMaxInput] = useState('')
-  const [paginaCatalogo, setPaginaCatalogo] = useState(1)
-  const [tamanoPaginaCatalogo, setTamanoPaginaCatalogo] = useState<number>(
-    TAMANO_PAGINA_INICIAL,
-  )
-
-  // Historial
-  const [productoHistorialId, setProductoHistorialId] = useState<number | null>(
-    null,
-  )
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const productoParam = params.get('producto')
-    if (productoParam) {
-      const id = Number(productoParam)
-      if (Number.isFinite(id) && id > 0) {
-        setProductoHistorialId(id)
-        setHistorySupplierTab('GLOBAL')
-        setView('history')
-      }
-    }
-  }, [])
   const [datosHistorial, setDatosHistorial] = useState<PuntoHistorialGrafico[]>(
     [],
   )
@@ -285,6 +262,37 @@ export function PerfumeWorkspace() {
   const mostrarRentabilidadStore = useConfiguracionStore(
     (estado) => estado.mostrarRentabilidadEnCatalogo,
   )
+  const modoOscuroStore = useConfiguracionStore((estado) => estado.modoOscuro)
+  const vistaActivaStore = useConfiguracionStore((estado) => estado.vistaActiva)
+  const filtrosCatalogoStore = useConfiguracionStore(
+    (estado) => estado.filtrosCatalogo,
+  )
+  const precioMinInputStore = useConfiguracionStore(
+    (estado) => estado.precioMinInput,
+  )
+  const precioMaxInputStore = useConfiguracionStore(
+    (estado) => estado.precioMaxInput,
+  )
+  const filtersOpenStore = useConfiguracionStore((estado) => estado.filtersOpen)
+  const paginaCatalogoStore = useConfiguracionStore(
+    (estado) => estado.paginaCatalogo,
+  )
+  const tamanoPaginaCatalogoStore = useConfiguracionStore(
+    (estado) => estado.tamanoPaginaCatalogo,
+  )
+  const monitorTabStore = useConfiguracionStore((estado) => estado.monitorTab)
+  const productoHistorialIdStore = useConfiguracionStore(
+    (estado) => estado.productoHistorialId,
+  )
+  const historySupplierTabStore = useConfiguracionStore(
+    (estado) => estado.historySupplierTab,
+  )
+  const categoriasPorMarcaStore = useConfiguracionStore(
+    (estado) => estado.categoriasPorMarca,
+  )
+  const marcasEliminadasStore = useConfiguracionStore(
+    (estado) => estado.marcasEliminadas,
+  )
   const setDolarDelDia = useConfiguracionStore((estado) => estado.setDolarDelDia)
   const setTipoDolarActivo = useConfiguracionStore(
     (estado) => estado.setTipoDolarActivo,
@@ -294,6 +302,29 @@ export function PerfumeWorkspace() {
   )
   const alternarMonedaVisualizacion = useConfiguracionStore(
     (estado) => estado.alternarMonedaVisualizacion,
+  )
+  const setIsDark = useConfiguracionStore((estado) => estado.setModoOscuro)
+  const setView = useConfiguracionStore((estado) => estado.setVistaActiva)
+  const setFiltros = useConfiguracionStore((estado) => estado.setFiltrosCatalogo)
+  const setPrecioMinInput = useConfiguracionStore(
+    (estado) => estado.setPrecioMinInput,
+  )
+  const setPrecioMaxInput = useConfiguracionStore(
+    (estado) => estado.setPrecioMaxInput,
+  )
+  const setFiltersOpen = useConfiguracionStore((estado) => estado.setFiltersOpen)
+  const setPaginaCatalogo = useConfiguracionStore(
+    (estado) => estado.setPaginaCatalogo,
+  )
+  const setTamanoPaginaCatalogo = useConfiguracionStore(
+    (estado) => estado.setTamanoPaginaCatalogo,
+  )
+  const setMonitorTab = useConfiguracionStore((estado) => estado.setMonitorTab)
+  const setProductoHistorialId = useConfiguracionStore(
+    (estado) => estado.setProductoHistorialId,
+  )
+  const setHistorySupplierTab = useConfiguracionStore(
+    (estado) => estado.setHistorySupplierTab,
   )
   const setMargenGeneralPorcentaje = useConfiguracionStore(
     (estado) => estado.setMargenGeneralPorcentaje,
@@ -324,6 +355,18 @@ export function PerfumeWorkspace() {
   )
   const restaurarRentabilidadPorDefecto = useConfiguracionStore(
     (estado) => estado.restaurarRentabilidadPorDefecto,
+  )
+  const setCategoriaMarca = useConfiguracionStore(
+    (estado) => estado.setCategoriaMarca,
+  )
+  const eliminarMarcaParaSiempre = useConfiguracionStore(
+    (estado) => estado.eliminarMarcaParaSiempre,
+  )
+  const restaurarMarcaEliminada = useConfiguracionStore(
+    (estado) => estado.restaurarMarcaEliminada,
+  )
+  const sincronizarConfiguracionMarcasDesdeDB = useConfiguracionStore(
+    (estado) => estado.sincronizarConfiguracionMarcasDesdeDB,
   )
 
   const itemsWatchlistStore = useWatchlistStore((estado) => estado.items)
@@ -373,6 +416,101 @@ export function PerfumeWorkspace() {
   useEffect(() => {
     setHidratado(true)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+    const params = new URLSearchParams(window.location.search)
+    const productoParam = params.get('producto')
+    if (productoParam) {
+      const id = Number(productoParam)
+      if (Number.isFinite(id) && id > 0) {
+        setProductoHistorialId(id)
+        setHistorySupplierTab('GLOBAL')
+        setView('history')
+      }
+    }
+  }, [setHistorySupplierTab, setProductoHistorialId, setView])
+
+  const isDark = hidratado ? modoOscuroStore : false
+  const view: VistaActiva = hidratado ? vistaActivaStore : 'overview'
+  const filtros: FiltrosCatalogo = hidratado
+    ? filtrosCatalogoStore
+    : FILTROS_CATALOGO_INICIALES
+  const precioMinInput = hidratado ? precioMinInputStore : ''
+  const precioMaxInput = hidratado ? precioMaxInputStore : ''
+  const filtersOpen = hidratado ? filtersOpenStore : false
+  const paginaCatalogo = hidratado ? paginaCatalogoStore : 1
+  const tamanoPaginaCatalogo = hidratado
+    ? tamanoPaginaCatalogoStore
+    : TAMANO_PAGINA_INICIAL
+  const monitorTab = hidratado ? monitorTabStore : 'arbitraje'
+  const productoHistorialId = hidratado ? productoHistorialIdStore : null
+  const historySupplierTab = hidratado ? historySupplierTabStore : 'GLOBAL'
+  const categoriasPorMarca = useMemo(
+    () => (hidratado ? categoriasPorMarcaStore : {}),
+    [hidratado, categoriasPorMarcaStore],
+  )
+  const marcasEliminadas = useMemo(
+    () => (hidratado ? marcasEliminadasStore : {}),
+    [hidratado, marcasEliminadasStore],
+  )
+
+  useEffect(() => {
+    if (!hidratado || typeof document === 'undefined') return
+    document.documentElement.classList.toggle('dark', isDark)
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
+  }, [hidratado, isDark])
+
+  useEffect(() => {
+    if (!hidratado || cargandoCatalogo || scrollRestauradoRef.current) return
+    if (typeof window === 'undefined') return
+
+    let raf1 = 0
+    let raf2 = 0
+    let cancelado = false
+    const { scrollY } = leerScrollNavegacion()
+
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        if (cancelado) return
+        if (scrollY > 0) {
+          window.scrollTo({ top: scrollY, behavior: 'instant' })
+        }
+        scrollRestauradoRef.current = true
+      })
+    })
+
+    return () => {
+      cancelado = true
+      window.cancelAnimationFrame(raf1)
+      window.cancelAnimationFrame(raf2)
+    }
+  }, [hidratado, cargandoCatalogo])
+
+  useEffect(() => {
+    if (!hidratado || typeof window === 'undefined') return
+
+    let rafPendiente = 0
+    const guardarScrollVertical = () => {
+      if (cargandoCatalogo || !scrollRestauradoRef.current) return
+      if (rafPendiente) return
+      rafPendiente = window.requestAnimationFrame(() => {
+        rafPendiente = 0
+        guardarScrollNavegacion({ scrollY: window.scrollY })
+      })
+    }
+
+    window.addEventListener('scroll', guardarScrollVertical, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', guardarScrollVertical)
+      if (rafPendiente) {
+        window.cancelAnimationFrame(rafPendiente)
+      }
+    }
+  }, [hidratado, cargandoCatalogo])
 
   const dolarDelDia = hidratado ? dolarDelDiaStore : 1400
   const tipoDolarActivo: TipoCotizacionDolar = hidratado
@@ -478,7 +616,12 @@ export function PerfumeWorkspace() {
       if ((await autoFusionarAltaConfianza(filas)) > 0) {
         filas = await obtenerTodoElCatalogo()
       }
-      setAliasProductos(await obtenerAliasProductos())
+      const [alias, configMarcas] = await Promise.all([
+        obtenerAliasProductos(),
+        obtenerConfiguracionMarcas(),
+      ])
+      setAliasProductos(alias)
+      sincronizarConfiguracionMarcasDesdeDB(configMarcas)
       setFilasCatalogo(filas)
       setUsandoDemo(false)
 
@@ -516,7 +659,11 @@ export function PerfumeWorkspace() {
     } finally {
       setCargandoCatalogo(false)
     }
-  }, [sincronizarPreciosManualesDesdeCatalogo, autoFusionarAltaConfianza])
+  }, [
+    sincronizarPreciosManualesDesdeCatalogo,
+    sincronizarConfiguracionMarcasDesdeDB,
+    autoFusionarAltaConfianza,
+  ])
 
   useEffect(() => {
     void cargarCatalogo()
@@ -524,6 +671,8 @@ export function PerfumeWorkspace() {
 
   // Sincronizamos el rango ingresado según la moneda visualizada hacia rangoPrecioARS
   useEffect(() => {
+    if (!hidratado) return
+
     const convertirAARS = (valorTexto: string): number | null => {
       if (!valorTexto.trim()) return null
       const numero = Number(valorTexto)
@@ -531,14 +680,29 @@ export function PerfumeWorkspace() {
       return monedaVisualizacion === 'USD' ? numero * dolarDelDia : numero
     }
 
-    setFiltros((previo) => ({
-      ...previo,
-      rangoPrecioARS: [
-        convertirAARS(precioMinInput),
-        convertirAARS(precioMaxInput),
-      ],
-    }))
-  }, [precioMinInput, precioMaxInput, monedaVisualizacion, dolarDelDia])
+    const nuevoMin = convertirAARS(precioMinInput)
+    const nuevoMax = convertirAARS(precioMaxInput)
+
+    setFiltros((previo) => {
+      if (
+        previo.rangoPrecioARS[0] === nuevoMin &&
+        previo.rangoPrecioARS[1] === nuevoMax
+      ) {
+        return previo
+      }
+      return {
+        ...previo,
+        rangoPrecioARS: [nuevoMin, nuevoMax],
+      }
+    })
+  }, [
+    hidratado,
+    precioMinInput,
+    precioMaxInput,
+    monedaVisualizacion,
+    dolarDelDia,
+    setFiltros,
+  ])
 
   // Catálogo base global sin filtrar para KPIs, conteos de sidebar, oportunidades y sync de carrito
   const {
@@ -550,6 +714,8 @@ export function PerfumeWorkspace() {
   } = useCatalogoPerfumes(filasCatalogo, dolarDelDia, FILTROS_CATALOGO_INICIALES, {
     mapaVariaciones,
     configRentabilidad,
+    categoriasPorMarca,
+    marcasEliminadas,
   })
 
   const mapaProductosGlobales = useMemo(
@@ -594,13 +760,75 @@ export function PerfumeWorkspace() {
       idsAlertasActivas,
       idsFaltaReponer,
       configRentabilidad,
+      categoriasPorMarca,
+      marcasEliminadas,
     },
   )
 
-  // Reiniciar paginación al cambiar resultados filtrados
+  const claveFiltrosActivos = useMemo(
+    () =>
+      JSON.stringify([
+        filtros.busqueda,
+        filtros.marcasSeleccionadas,
+        filtros.tiposSeleccionados,
+        filtros.genero,
+        filtros.categoria,
+        filtros.soloEnStock,
+        filtros.ordenarPor,
+        filtros.pestanaActiva,
+        filtros.filtroInteligencia,
+        precioMinInput.trim(),
+        precioMaxInput.trim(),
+      ]),
+    [
+      filtros.busqueda,
+      filtros.marcasSeleccionadas,
+      filtros.tiposSeleccionados,
+      filtros.genero,
+      filtros.categoria,
+      filtros.soloEnStock,
+      filtros.ordenarPor,
+      filtros.pestanaActiva,
+      filtros.filtroInteligencia,
+      precioMinInput,
+      precioMaxInput,
+    ],
+  )
+
+  const prevClaveFiltrosRef = useRef<string | null>(null)
+
+  // Reiniciar a la página 1 únicamente cuando cambian los filtros u ordenamiento tras hidratar
   useEffect(() => {
-    setPaginaCatalogo(1)
-  }, [productosVisibles])
+    if (!hidratado) return
+    if (prevClaveFiltrosRef.current === null) {
+      prevClaveFiltrosRef.current = claveFiltrosActivos
+      return
+    }
+    if (prevClaveFiltrosRef.current !== claveFiltrosActivos) {
+      prevClaveFiltrosRef.current = claveFiltrosActivos
+      setPaginaCatalogo(1)
+    }
+  }, [hidratado, claveFiltrosActivos, setPaginaCatalogo])
+
+  // Si tras cargar o editar un producto la página actual excede el total, ajustar al último válido
+  useEffect(() => {
+    if (!hidratado || cargandoCatalogo || filasCatalogo.length === 0) return
+    const totalPaginas = Math.max(
+      1,
+      Math.ceil(productosVisibles.length / tamanoPaginaCatalogo),
+    )
+    if (paginaCatalogo > totalPaginas) {
+      setPaginaCatalogo(totalPaginas)
+    }
+  }, [
+    hidratado,
+    cargandoCatalogo,
+    filasCatalogo.length,
+    productosVisibles.length,
+    tamanoPaginaCatalogo,
+    paginaCatalogo,
+    setPaginaCatalogo,
+  ])
 
   // Mantener actualizados los precios del carrito desde el catálogo completo
   useEffect(() => {
@@ -894,15 +1122,52 @@ export function PerfumeWorkspace() {
     [productosGlobales, usandoDemo, cargarCatalogo],
   )
 
-  const manejarCambiarCategoriaProducto = useCallback(
-    async (
-      producto: ProductoComparado,
-      nuevaCategoria: CategoriaPerfume | null,
-    ) => {
-      const categoriaAnterior = producto.categoria ?? null
+  const resumenMarcasEditables = useMemo<ResumenMarcaEditable[]>(() => {
+    const mapa = new Map<
+      string,
+      { marca: string; cantidad: number; categoria: CategoriaPerfume | null }
+    >()
+    for (const prod of productosGlobales) {
+      const clave = normalizarClaveMarca(prod.marca)
+      if (!clave) continue
+      const existente = mapa.get(clave)
+      const catMarca =
+        clave in categoriasPorMarca ? categoriasPorMarca[clave] : prod.categoria
+      if (!existente) {
+        mapa.set(clave, {
+          marca: prod.marca,
+          cantidad: 1,
+          categoria: catMarca ?? null,
+        })
+      } else {
+        existente.cantidad += 1
+        if (!existente.categoria && catMarca) {
+          existente.categoria = catMarca
+        }
+      }
+    }
+    return Array.from(mapa.values()).sort((a, b) =>
+      a.marca.localeCompare(b.marca, 'es-AR'),
+    )
+  }, [productosGlobales, categoriasPorMarca])
+
+  const abrirEditorMarcas = useCallback((marcaInicial?: string) => {
+    setMarcaFiltroModalMarcas(marcaInicial ?? null)
+    setModalMarcasAbierto(true)
+  }, [])
+
+  const manejarCambiarCategoriaMarca = useCallback(
+    async (marca: string, nuevaCategoria: CategoriaPerfume | null) => {
+      const claveMarca = normalizarClaveMarca(marca)
+      if (!claveMarca) return
+
+      const categoriaAnterior =
+        claveMarca in categoriasPorMarca ? categoriasPorMarca[claveMarca] : undefined
+
+      setCategoriaMarca(marca, nuevaCategoria)
       setFilasCatalogo((previo) =>
         previo.map((fila) =>
-          fila.producto_id === producto.producto_id
+          normalizarClaveMarca(fila.marca) === claveMarca
             ? { ...fila, categoria: nuevaCategoria }
             : fila,
         ),
@@ -910,24 +1175,108 @@ export function PerfumeWorkspace() {
 
       try {
         if (!usandoDemo && estaSupabaseConfigurado()) {
-          await actualizarCategoriaProducto(producto.producto_id, nuevaCategoria)
+          await guardarCategoriaMarcaDB(marca, nuevaCategoria)
         }
-      } catch (error) {
-        setFilasCatalogo((previo) =>
-          previo.map((fila) =>
-            fila.producto_id === producto.producto_id
-              ? { ...fila, categoria: categoriaAnterior }
-              : fila,
-          ),
+        setMensajeSyncFotos(
+          `Categoría «${etiquetaCategoriaPerfume(
+            nuevaCategoria,
+          )}» aplicada a toda la marca ${marca}.`,
         )
+        setTimeout(() => setMensajeSyncFotos(null), 4000)
+      } catch (error) {
+        if (categoriaAnterior !== undefined) {
+          setCategoriaMarca(marca, categoriaAnterior)
+        }
         setErrorCatalogo(
           error instanceof Error
             ? error.message
-            : 'No se pudo actualizar la categoría del perfume.',
+            : `No se pudo actualizar la categoría de la marca ${marca}.`,
         )
+        throw error
       }
     },
-    [usandoDemo],
+    [categoriasPorMarca, setCategoriaMarca, usandoDemo],
+  )
+
+  const manejarEliminarMarcaParaSiempre = useCallback(
+    async (marca: string) => {
+      const claveMarca = normalizarClaveMarca(marca)
+      if (!claveMarca) return
+
+      if (!usandoDemo && estaSupabaseConfigurado()) {
+        await eliminarMarcaParaSiempreDB(marca)
+      }
+
+      const idsAEliminar = new Set<number>()
+      for (const fila of filasCatalogo) {
+        if (normalizarClaveMarca(fila.marca) === claveMarca) {
+          idsAEliminar.add(fila.producto_id)
+        }
+      }
+
+      eliminarMarcaParaSiempre(marca)
+      setFilasCatalogo((previo) =>
+        previo.filter((fila) => normalizarClaveMarca(fila.marca) !== claveMarca),
+      )
+
+      if (idsAEliminar.size > 0) {
+        useCarritoStore.setState((estado) => ({
+          items: estado.items.filter(
+            (item) => !idsAEliminar.has(item.productoId),
+          ),
+        }))
+        useWatchlistStore.setState((estado) => {
+          const siguientes = { ...estado.items }
+          for (const id of idsAEliminar) delete siguientes[id]
+          return { items: siguientes }
+        })
+        useStockPropioStore.setState((estado) => {
+          const siguientes = { ...estado.registros }
+          for (const id of idsAEliminar) delete siguientes[id]
+          return { registros: siguientes }
+        })
+        useConfiguracionStore.setState((estado) => {
+          const siguientes = { ...estado.preciosVentaManualesARS }
+          for (const id of idsAEliminar) delete siguientes[id]
+          return { preciosVentaManualesARS: siguientes }
+        })
+        if (
+          productoHistorialId !== null &&
+          idsAEliminar.has(productoHistorialId)
+        ) {
+          setProductoHistorialId(null)
+        }
+      }
+
+      setMensajeSyncFotos(
+        `La marca ${marca} y todos sus perfumes fueron eliminados para siempre.`,
+      )
+      setTimeout(() => setMensajeSyncFotos(null), 5000)
+    },
+    [
+      usandoDemo,
+      filasCatalogo,
+      eliminarMarcaParaSiempre,
+      productoHistorialId,
+      setProductoHistorialId,
+    ],
+  )
+
+  const manejarRestaurarMarca = useCallback(
+    async (marcaNorm: string) => {
+      if (!usandoDemo && estaSupabaseConfigurado()) {
+        await restaurarMarcaEliminadaDB(marcaNorm)
+      }
+      restaurarMarcaEliminada(marcaNorm)
+      if (!usandoDemo && estaSupabaseConfigurado()) {
+        await cargarCatalogo()
+      }
+      setMensajeSyncFotos(
+        'La marca volvió a quedar permitida para el catálogo y futuras importaciones.',
+      )
+      setTimeout(() => setMensajeSyncFotos(null), 4000)
+    },
+    [usandoDemo, restaurarMarcaEliminada, cargarCatalogo],
   )
 
   const manejarGuardarPrecioVentaManual = useCallback(
@@ -948,6 +1297,21 @@ export function PerfumeWorkspace() {
         ),
       )
 
+      try {
+        if (!usandoDemo && estaSupabaseConfigurado()) {
+          await actualizarPrecioVentaManualProducto(
+            producto.producto_id,
+            valorNormalizado,
+          )
+        }
+      } catch (error) {
+        setErrorCatalogo(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo guardar el precio de venta manual en Supabase.',
+        )
+      }
+
       setMensajeSyncFotos(
         valorNormalizado !== null
           ? `Precio de venta manual fijado en ${formatearMoneda(
@@ -958,7 +1322,7 @@ export function PerfumeWorkspace() {
       )
       setTimeout(() => setMensajeSyncFotos(null), 4000)
     },
-    [setPrecioVentaManualProducto],
+    [setPrecioVentaManualProducto, usandoDemo],
   )
 
   const productoHistorialActivo = useMemo(() => {
@@ -1573,6 +1937,22 @@ export function PerfumeWorkspace() {
               ) : null
             return subramas ? [boton, subramas] : boton
           })}
+
+          <button
+            type="button"
+            onClick={() => abrirEditorMarcas()}
+            className={`sidebar-link flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] transition ${
+              modalMarcasAbierto
+                ? 'sidebar-link-active font-semibold'
+                : 'font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Tags size={17} strokeWidth={1.8} />
+            <span className="flex-1">Editar marcas</span>
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+              {marcasDisponibles.length}
+            </span>
+          </button>
         </nav>
 
         <div className="my-6 hidden border-t border-slate-100 lg:block" />
@@ -2501,7 +2881,7 @@ export function PerfumeWorkspace() {
                 onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
                 onAbrirImportador={() => setModalImportadorAbierto(true)}
                 onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
-                onCambiarCategoria={manejarCambiarCategoriaProducto}
+                onEditarMarca={abrirEditorMarcas}
                 onFusionar={setProductoFusionManual}
                 cargandoCatalogo={cargandoCatalogo}
                 onAdd={manejarAgregarAlCarrito}
@@ -2554,8 +2934,8 @@ export function PerfumeWorkspace() {
               onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
               onAbrirImportador={() => setModalImportadorAbierto(true)}
               onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
-              onCambiarCategoria={manejarCambiarCategoriaProducto}
-                onFusionar={setProductoFusionManual}
+              onEditarMarca={abrirEditorMarcas}
+              onFusionar={setProductoFusionManual}
               cargandoCatalogo={cargandoCatalogo}
               onAdd={manejarAgregarAlCarrito}
               onHistory={abrirDetallePerfume}
@@ -3816,8 +4196,25 @@ export function PerfumeWorkspace() {
           proveedoresDisponibles={proveedoresDisponibles}
           productosGlobales={productosGlobales}
           alias={aliasProductos}
+          categoriasPorMarca={categoriasPorMarca}
+          marcasEliminadas={marcasEliminadas}
           onImportar={manejarAplicarImportacion}
           onCerrar={() => setModalImportadorAbierto(false)}
+        />
+      )}
+
+      {modalMarcasAbierto && (
+        <ModalEditorMarcas
+          marcasResumen={resumenMarcasEditables}
+          marcasEliminadas={marcasEliminadas}
+          marcaInicialFiltro={marcaFiltroModalMarcas}
+          onCambiarCategoriaMarca={manejarCambiarCategoriaMarca}
+          onEliminarMarca={manejarEliminarMarcaParaSiempre}
+          onRestaurarMarca={manejarRestaurarMarca}
+          onCerrar={() => {
+            setModalMarcasAbierto(false)
+            setMarcaFiltroModalMarcas(null)
+          }}
         />
       )}
 

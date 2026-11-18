@@ -445,6 +445,7 @@ export function useCatalogoPerfumes(
       .filter(Boolean)
 
     const marcasActivas = new Set(filtros.marcasSeleccionadas)
+    const marcasOcultas = new Set(filtros.marcasOcultas ?? [])
     const tiposActivos = new Set(filtros.tiposSeleccionados)
     const [precioMinARS, precioMaxARS] = filtros.rangoPrecioARS
 
@@ -517,6 +518,10 @@ export function useCatalogoPerfumes(
         if (!idsFaltaReponer?.has(productoContextual.producto_id)) {
           continue
         }
+      }
+
+      if (marcasOcultas.size > 0 && marcasOcultas.has(productoContextual.marca)) {
+        continue
       }
 
       if (marcasActivas.size > 0 && !marcasActivas.has(productoContextual.marca)) {

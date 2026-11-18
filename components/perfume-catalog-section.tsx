@@ -26,6 +26,8 @@ import {
   CircleHelp,
   Copy,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   Filter,
   GitMerge,
@@ -43,6 +45,7 @@ import {
   Sparkles,
   Star,
   Sun,
+  Tags,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -54,6 +57,7 @@ import {
 } from 'lucide-react'
 import {
   FILTROS_CATALOGO_INICIALES,
+  normalizarTextoBusqueda,
   useCatalogoPerfumes,
 } from '@/hooks/useCatalogoPerfumes'
 import {
@@ -161,6 +165,8 @@ export function CatalogSection({
   setPrecioMaxInput,
   onLimpiarFiltros,
   alternarMarcaFiltro,
+  alternarMarcaOculta,
+  conteoProductosPorMarca,
   cantidadFiltrosActivos,
   monedaVisualizacion,
   dolarDelDia,
@@ -209,6 +215,8 @@ export function CatalogSection({
   setPrecioMaxInput: (value: string) => void
   onLimpiarFiltros: () => void
   alternarMarcaFiltro: (marca: string) => void
+  alternarMarcaOculta: (marca: string) => void
+  conteoProductosPorMarca?: Map<string, number>
   cantidadFiltrosActivos: number
   monedaVisualizacion: Moneda
   dolarDelDia: number
@@ -286,10 +294,16 @@ export function CatalogSection({
       ? proveedoresDisponibles
       : [filtros.pestanaActiva]
 
-  const marcasAbiertas = useConfiguracionStore((estado) => estado.marcasAbiertas)
-  const setMarcasAbiertas = useConfiguracionStore(
-    (estado) => estado.setMarcasAbiertas,
-  )
+  const [busquedaMarcaFiltro, setBusquedaMarcaFiltro] = useState('')
+  const marcasOcultas = filtros.marcasOcultas ?? []
+  const marcasFiltradasEnPanel = useMemo(() => {
+    const termino = normalizarTextoBusqueda(busquedaMarcaFiltro)
+    if (!termino) return marcasDisponibles
+    return marcasDisponibles.filter((marca) =>
+      normalizarTextoBusqueda(marca).includes(termino),
+    )
+  }, [marcasDisponibles, busquedaMarcaFiltro])
+
   const contenedorTablaRef = useRef<HTMLDivElement | null>(null)
   const scrollHorizontalRestauradoRef = useRef(false)
   const tablaVisible = !(cargandoCatalogo && productos.length === 0)
@@ -461,6 +475,15 @@ export function CatalogSection({
           >
             <FileSpreadsheet size={12} className="text-violet-600" />
             <span>Importar lista</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onEditarMarca('')}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+          >
+            <Tags size={12} className="text-violet-600" />
+            <span>Editar marcas</span>
           </button>
 
           <button
@@ -652,147 +675,324 @@ export function CatalogSection({
       </div>
 
       {filtersOpen && (
-        <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3.5 sm:px-5">
-          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-            <fieldset className="min-w-0">
-              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Género
-              </legend>
-              <div className="flex flex-wrap gap-1">
-                {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
-                  <button
-                    type="button"
-                    key={etiqueta}
-                    onClick={() =>
-                      setFiltros((prev) => ({ ...prev, genero: valor }))
-                    }
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                      filtros.genero === valor
-                        ? 'bg-[#34294d] text-white'
-                        : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                    }`}
-                  >
-                    {etiqueta}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+        <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+            <div className="flex flex-col justify-between gap-4">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                <fieldset className="min-w-0">
+                  <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Género
+                  </legend>
+                  <div className="flex flex-wrap gap-1">
+                    {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
+                      <button
+                        type="button"
+                        key={etiqueta}
+                        onClick={() =>
+                          setFiltros((prev) => ({ ...prev, genero: valor }))
+                        }
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                          filtros.genero === valor
+                            ? 'bg-[#34294d] text-white'
+                            : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                        }`}
+                      >
+                        {etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
 
-            <fieldset className="min-w-0">
-              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Categoría
-              </legend>
-              <div className="flex flex-wrap gap-1">
-                {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
-                  <button
-                    type="button"
-                    key={etiqueta}
-                    onClick={() =>
-                      setFiltros((prev) => ({ ...prev, categoria: valor }))
-                    }
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                      filtros.categoria === valor
-                        ? 'bg-[#34294d] text-white'
-                        : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                    }`}
-                  >
-                    {etiqueta}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+                <fieldset className="min-w-0">
+                  <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Precio (USD)
+                  </legend>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      aria-label="Precio mínimo"
+                      type="number"
+                      min="0"
+                      value={precioMinInput}
+                      onChange={(event) => setPrecioMinInput(event.target.value)}
+                      placeholder="Mín"
+                      className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400">-</span>
+                    <input
+                      aria-label="Precio máximo"
+                      type="number"
+                      min="0"
+                      value={precioMaxInput}
+                      onChange={(event) => setPrecioMaxInput(event.target.value)}
+                      placeholder="Máx"
+                      className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                    />
+                  </div>
+                  <label className="mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={filtros.soloEnStock}
+                      onChange={(event) =>
+                        setFiltros((prev) => ({
+                          ...prev,
+                          soloEnStock: event.target.checked,
+                        }))
+                      }
+                      className="size-3.5 accent-violet-700"
+                    />
+                    Solo con stock
+                  </label>
+                </fieldset>
 
-            <fieldset className="min-w-0">
-              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Precio (USD)
-              </legend>
-              <div className="flex items-center gap-1.5">
-                <input
-                  aria-label="Precio mínimo"
-                  type="number"
-                  min="0"
-                  value={precioMinInput}
-                  onChange={(event) => setPrecioMinInput(event.target.value)}
-                  placeholder="Mín"
-                  className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
-                />
-                <span className="text-[10px] text-slate-400">-</span>
-                <input
-                  aria-label="Precio máximo"
-                  type="number"
-                  min="0"
-                  value={precioMaxInput}
-                  onChange={(event) => setPrecioMaxInput(event.target.value)}
-                  placeholder="Máx"
-                  className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
-                />
+                <fieldset className="min-w-0 sm:col-span-2">
+                  <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Categoría
+                  </legend>
+                  <div className="flex flex-wrap gap-1">
+                    {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
+                      <button
+                        type="button"
+                        key={etiqueta}
+                        onClick={() =>
+                          setFiltros((prev) => ({ ...prev, categoria: valor }))
+                        }
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                          filtros.categoria === valor
+                            ? 'bg-[#34294d] text-white'
+                            : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                        }`}
+                      >
+                        {etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
-              <label className="mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={filtros.soloEnStock}
-                  onChange={(event) =>
-                    setFiltros((prev) => ({
-                      ...prev,
-                      soloEnStock: event.target.checked,
-                    }))
-                  }
-                  className="size-3.5 accent-violet-700"
-                />
-                Solo con stock
-              </label>
-            </fieldset>
-          </div>
 
-          <div className="mt-3 flex items-start gap-3 border-t border-slate-200/70 pt-2.5">
-            {marcasDisponibles.length > 0 && (
-              <div className="min-w-0 flex-1">
+              {(filtros.marcasSeleccionadas.length > 0 ||
+                marcasOcultas.length > 0) && (
+                <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Marcas filtradas manualmente
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {filtros.marcasSeleccionadas.map((marca) => (
+                      <button
+                        type="button"
+                        key={`sel-${marca}`}
+                        onClick={() => alternarMarcaFiltro(marca)}
+                        className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:bg-violet-100"
+                      >
+                        <span>Mostrar: {marca}</span>
+                        <X size={10} />
+                      </button>
+                    ))}
+                    {marcasOcultas.map((marca) => (
+                      <button
+                        type="button"
+                        key={`hide-${marca}`}
+                        onClick={() => alternarMarcaOculta(marca)}
+                        className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 hover:bg-rose-100"
+                      >
+                        <EyeOff size={10} />
+                        <span>Oculta: {marca}</span>
+                        <X size={10} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-3">
                 <button
                   type="button"
-                  onClick={() => setMarcasAbiertas((v) => !v)}
-                  aria-expanded={marcasAbiertas}
-                  className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                  onClick={() => onEditarMarca('')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
                 >
-                  Marcas
-                  {filtros.marcasSeleccionadas.length > 0 &&
-                    ` (${filtros.marcasSeleccionadas.length})`}
-                  <ChevronDown
-                    size={12}
-                    className={marcasAbiertas ? 'rotate-180' : ''}
-                  />
+                  <Tags size={12} className="text-violet-600" />
+                  Editar categorías o eliminar marcas
                 </button>
-                {marcasAbiertas && (
-                  <div className="mt-2 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
-                    {marcasDisponibles.map((marca) => {
-                      const seleccionada =
-                        filtros.marcasSeleccionadas.includes(marca)
-                      return (
+                <button
+                  type="button"
+                  onClick={onLimpiarFiltros}
+                  className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
+                >
+                  <X size={12} />
+                  Limpiar filtros
+                </button>
+              </div>
+            </div>
+
+            {marcasDisponibles.length > 0 && (
+              <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Marcas ({marcasDisponibles.length})
+                    </span>
+                    {filtros.marcasSeleccionadas.length > 0 && (
+                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                        {filtros.marcasSeleccionadas.length} visibles
+                      </span>
+                    )}
+                    {marcasOcultas.length > 0 && (
+                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
+                        {marcasOcultas.length} ocultas
+                      </span>
+                    )}
+                  </div>
+                  {(filtros.marcasSeleccionadas.length > 0 ||
+                    marcasOcultas.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFiltros((prev) => ({
+                          ...prev,
+                          marcasSeleccionadas: [],
+                          marcasOcultas: [],
+                        }))
+                      }
+                      className="text-[11px] font-semibold text-violet-700 hover:underline"
+                    >
+                      Mostrar todas
+                    </button>
+                  )}
+                </div>
+
+                <label className="relative mt-2.5 block">
+                  <Search
+                    size={13}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    aria-label="Buscar marca en filtros"
+                    value={busquedaMarcaFiltro}
+                    onChange={(event) =>
+                      setBusquedaMarcaFiltro(event.target.value)
+                    }
+                    placeholder="Buscar marca en la lista..."
+                    className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-8 text-[11px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                  />
+                  {busquedaMarcaFiltro && (
+                    <button
+                      type="button"
+                      onClick={() => setBusquedaMarcaFiltro('')}
+                      aria-label="Limpiar búsqueda de marca"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </label>
+
+                <div
+                  role="list"
+                  aria-label="Lista de marcas"
+                  className="mt-2.5 flex h-[240px] flex-col gap-1 overflow-y-auto pr-1"
+                >
+                  {marcasFiltradasEnPanel.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center text-[11px] text-slate-400">
+                      <p>No se encontró ninguna marca con ese nombre.</p>
+                      {busquedaMarcaFiltro && (
                         <button
                           type="button"
+                          onClick={() => setBusquedaMarcaFiltro('')}
+                          className="mt-1.5 font-semibold text-violet-700 hover:underline"
+                        >
+                          Ver todas las marcas
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    marcasFiltradasEnPanel.map((marca) => {
+                      const seleccionada =
+                        filtros.marcasSeleccionadas.includes(marca)
+                      const estaOculta = marcasOcultas.includes(marca)
+                      const conteo = conteoProductosPorMarca?.get(marca)
+
+                      return (
+                        <div
                           key={marca}
-                          onClick={() => alternarMarcaFiltro(marca)}
-                          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                            seleccionada
-                              ? 'bg-[#34294d] text-white'
-                              : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                          role="listitem"
+                          className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition ${
+                            estaOculta
+                              ? 'border-rose-200 bg-rose-50 opacity-75'
+                              : seleccionada
+                                ? 'border-violet-300 bg-violet-50'
+                                : 'border-slate-200 bg-white hover:bg-slate-50'
                           }`}
                         >
-                          {marca}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => alternarMarcaFiltro(marca)}
+                            title={
+                              seleccionada
+                                ? `Quitar filtro de ${marca}`
+                                : `Filtrar catálogo por ${marca}`
+                            }
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          >
+                            <span
+                              className={`flex size-4 shrink-0 items-center justify-center rounded border text-[10px] transition ${
+                                seleccionada
+                                  ? 'border-[#34294d] bg-[#34294d] text-white'
+                                  : 'border-slate-300 bg-white text-transparent'
+                              }`}
+                            >
+                              <Check size={10} />
+                            </span>
+                            <span
+                              className={`truncate font-medium ${
+                                estaOculta
+                                  ? 'text-slate-400 line-through'
+                                  : seleccionada
+                                    ? 'font-semibold text-violet-800'
+                                    : 'text-slate-700'
+                              }`}
+                            >
+                              {marca}
+                            </span>
+                            {conteo !== undefined && (
+                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-500">
+                                {conteo}
+                              </span>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => alternarMarcaOculta(marca)}
+                            title={
+                              estaOculta
+                                ? `Volver a mostrar ${marca} en el catálogo`
+                                : `Ocultar ${marca} del catálogo`
+                            }
+                            aria-label={
+                              estaOculta
+                                ? `Mostrar marca ${marca}`
+                                : `Ocultar marca ${marca}`
+                            }
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
+                              estaOculta
+                                ? 'border-rose-300 bg-white text-rose-600 hover:bg-rose-100'
+                                : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                            }`}
+                          >
+                            {estaOculta ? (
+                              <EyeOff size={11} />
+                            ) : (
+                              <Eye size={11} />
+                            )}
+                            <span>{estaOculta ? 'Oculta' : 'Ocultar'}</span>
+                          </button>
+                        </div>
                       )
-                    })}
-                  </div>
-                )}
+                    })
+                  )}
+                </div>
               </div>
             )}
-            <button
-              type="button"
-              onClick={onLimpiarFiltros}
-              className="ml-auto flex shrink-0 items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
-            >
-              <X size={12} />
-              Limpiar
-            </button>
           </div>
         </div>
       )}

@@ -770,6 +770,7 @@ export function PerfumeWorkspace() {
       JSON.stringify([
         filtros.busqueda,
         filtros.marcasSeleccionadas,
+        filtros.marcasOcultas,
         filtros.tiposSeleccionados,
         filtros.genero,
         filtros.categoria,
@@ -783,6 +784,7 @@ export function PerfumeWorkspace() {
     [
       filtros.busqueda,
       filtros.marcasSeleccionadas,
+      filtros.marcasOcultas,
       filtros.tiposSeleccionados,
       filtros.genero,
       filtros.categoria,
@@ -1743,14 +1745,46 @@ export function PerfumeWorkspace() {
   const alternarMarcaFiltro = (marca: string) => {
     setFiltros((previo) => {
       const existe = previo.marcasSeleccionadas.includes(marca)
+      const nuevasSeleccionadas = existe
+        ? previo.marcasSeleccionadas.filter((m) => m !== marca)
+        : [...previo.marcasSeleccionadas, marca]
+      const nuevasOcultas = existe
+        ? (previo.marcasOcultas ?? [])
+        : (previo.marcasOcultas ?? []).filter((m) => m !== marca)
       return {
         ...previo,
-        marcasSeleccionadas: existe
-          ? previo.marcasSeleccionadas.filter((m) => m !== marca)
-          : [...previo.marcasSeleccionadas, marca],
+        marcasSeleccionadas: nuevasSeleccionadas,
+        marcasOcultas: nuevasOcultas,
       }
     })
   }
+
+  const alternarMarcaOculta = (marca: string) => {
+    setFiltros((previo) => {
+      const ocultasActuales = previo.marcasOcultas ?? []
+      const estaOculta = ocultasActuales.includes(marca)
+      const nuevasOcultas = estaOculta
+        ? ocultasActuales.filter((m) => m !== marca)
+        : [...ocultasActuales, marca]
+      const nuevasSeleccionadas = estaOculta
+        ? previo.marcasSeleccionadas
+        : previo.marcasSeleccionadas.filter((m) => m !== marca)
+      return {
+        ...previo,
+        marcasOcultas: nuevasOcultas,
+        marcasSeleccionadas: nuevasSeleccionadas,
+      }
+    })
+  }
+
+  const conteoProductosPorMarca = useMemo(() => {
+    const mapa = new Map<string, number>()
+    for (const prod of productosGlobales) {
+      if (!prod.marca) continue
+      mapa.set(prod.marca, (mapa.get(prod.marca) ?? 0) + 1)
+    }
+    return mapa
+  }, [productosGlobales])
 
   const filtrarPorMarcaEnTabla = useCallback((marca: string) => {
     setFiltros((previo) => ({
@@ -1786,6 +1820,7 @@ export function PerfumeWorkspace() {
 
   const cantidadFiltrosActivos =
     filtros.marcasSeleccionadas.length +
+    (filtros.marcasOcultas?.length ?? 0) +
     (filtros.genero ? 1 : 0) +
     (filtros.categoria ? 1 : 0) +
     (filtros.soloEnStock ? 1 : 0) +
@@ -1837,11 +1872,11 @@ export function PerfumeWorkspace() {
         isDark ? 'dashboard-dark' : ''
       }`}
     >
-      <aside className="dashboard-sidebar flex w-full shrink-0 flex-col border-b border-slate-200 bg-white px-4 py-4 lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
+      <aside className="dashboard-sidebar flex w-full shrink-0 flex-col border-b border-slate-200 bg-white px-4 py-4 lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
         <button
           type="button"
           onClick={() => setView('overview')}
-          className="mb-5 flex items-center gap-3 px-1 text-left lg:mb-9"
+          className="mb-4 flex items-center gap-3 px-1 text-left lg:mb-5"
           aria-label="PerfumeHub, ir al resumen"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-base font-extrabold text-green-600 shadow-xs">
@@ -1863,7 +1898,7 @@ export function PerfumeWorkspace() {
 
         <nav
           aria-label="Navegación principal"
-          className="scrollbar-none flex gap-1 overflow-x-auto lg:flex-col"
+          className="flex shrink-0 flex-wrap gap-1 lg:flex-col lg:flex-nowrap lg:overflow-visible"
         >
           {navItems.map((item) => {
             const Icon = item.icon
@@ -1941,21 +1976,21 @@ export function PerfumeWorkspace() {
           <button
             type="button"
             onClick={() => abrirEditorMarcas()}
-            className={`sidebar-link flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] transition ${
+            className={`sidebar-link mt-1 flex shrink-0 items-center gap-3 rounded-lg border px-3 py-2 text-left text-[13px] font-semibold transition ${
               modalMarcasAbierto
-                ? 'sidebar-link-active font-semibold'
-                : 'font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                ? 'sidebar-link-active border-violet-300'
+                : 'border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100'
             }`}
           >
-            <Tags size={17} strokeWidth={1.8} />
+            <Tags size={17} strokeWidth={1.8} className="shrink-0 text-violet-600" />
             <span className="flex-1">Editar marcas</span>
-            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+            <span className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-violet-200">
               {marcasDisponibles.length}
             </span>
           </button>
         </nav>
 
-        <div className="my-6 hidden border-t border-slate-100 lg:block" />
+        <div className="my-3.5 hidden border-t border-slate-100 lg:block" />
 
         <div className="mb-3 hidden px-2 text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400 lg:block">
           Proveedores
@@ -2863,6 +2898,8 @@ export function PerfumeWorkspace() {
                 setPrecioMaxInput={setPrecioMaxInput}
                 onLimpiarFiltros={limpiarTodosLosFiltros}
                 alternarMarcaFiltro={alternarMarcaFiltro}
+                alternarMarcaOculta={alternarMarcaOculta}
+                conteoProductosPorMarca={conteoProductosPorMarca}
                 cantidadFiltrosActivos={cantidadFiltrosActivos}
                 monedaVisualizacion={monedaVisualizacion}
                 dolarDelDia={dolarDelDia}
@@ -2916,6 +2953,8 @@ export function PerfumeWorkspace() {
               setPrecioMaxInput={setPrecioMaxInput}
               onLimpiarFiltros={limpiarTodosLosFiltros}
               alternarMarcaFiltro={alternarMarcaFiltro}
+              alternarMarcaOculta={alternarMarcaOculta}
+              conteoProductosPorMarca={conteoProductosPorMarca}
               cantidadFiltrosActivos={cantidadFiltrosActivos}
               monedaVisualizacion={monedaVisualizacion}
               dolarDelDia={dolarDelDia}

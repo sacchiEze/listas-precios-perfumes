@@ -142,6 +142,9 @@ function normalizarFiltrosPersistidos(crudo: unknown): FiltrosCatalogo {
     marcasSeleccionadas: Array.isArray(f.marcasSeleccionadas)
       ? f.marcasSeleccionadas.filter((m): m is string => typeof m === 'string')
       : [],
+    marcasOcultas: Array.isArray(f.marcasOcultas)
+      ? f.marcasOcultas.filter((m): m is string => typeof m === 'string')
+      : [],
     tiposSeleccionados: Array.isArray(f.tiposSeleccionados)
       ? f.tiposSeleccionados.filter((t): t is string => typeof t === 'string')
       : [],
@@ -430,6 +433,9 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
             filtrosCatalogo: {
               ...estado.filtrosCatalogo,
               marcasSeleccionadas: estado.filtrosCatalogo.marcasSeleccionadas.filter(
+                (m) => normalizarClaveMarca(m) !== clave,
+              ),
+              marcasOcultas: (estado.filtrosCatalogo.marcasOcultas ?? []).filter(
                 (m) => normalizarClaveMarca(m) !== clave,
               ),
             },

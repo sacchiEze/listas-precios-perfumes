@@ -255,6 +255,7 @@ export interface PuntoHistorialGrafico {
 export interface FiltrosCatalogo {
   busqueda: string
   marcasSeleccionadas: string[]
+  marcasOcultas: string[]
   tiposSeleccionados: string[]
   genero: string | null
   categoria: FiltroCategoriaPerfume
@@ -275,6 +276,7 @@ export const TAMANO_PAGINA_INICIAL = 32
 export const FILTROS_CATALOGO_INICIALES: FiltrosCatalogo = {
   busqueda: '',
   marcasSeleccionadas: [],
+  marcasOcultas: [],
   tiposSeleccionados: [],
   genero: null,
   categoria: null,

@@ -6,10 +6,78 @@ import type {
   TipoProducto,
 } from '@/types/perfumeria'
 
+export interface CalculoCostoPerfume {
+  costoBaseARS: number
+  costoBaseUSD: number
+  comisionUSD: number
+  comisionARS: number
+  envioAproximadoARS: number
+  envioAproximadoUSD: number
+  costoTotalARS: number
+  costoTotalUSD: number
+}
+
+export interface EntradaCostoPerfume {
+  costoBaseARS: number
+  costoBaseUSD?: number | null
+  comisionUSD: number
+  envioAproximadoARS: number
+  dolarDelDia: number
+}
+
+/**
+ * Calcula en memoria el costo final por perfume sumando la comisión en USD
+ * y el envío aproximado en ARS al precio base del proveedor.
+ */
+export function calcularCostoPerfume({
+  costoBaseARS,
+  costoBaseUSD,
+  comisionUSD,
+  envioAproximadoARS,
+  dolarDelDia,
+}: EntradaCostoPerfume): CalculoCostoPerfume {
+  const cotizacionSegura =
+    Number.isFinite(dolarDelDia) && dolarDelDia > 0 ? dolarDelDia : 1400
+  const baseARS =
+    Number.isFinite(costoBaseARS) && costoBaseARS > 0 ? costoBaseARS : 0
+  const baseUSD =
+    costoBaseUSD !== null &&
+    costoBaseUSD !== undefined &&
+    Number.isFinite(costoBaseUSD) &&
+    costoBaseUSD > 0
+      ? costoBaseUSD
+      : baseARS / cotizacionSegura
+
+  const comisionSeguraUSD =
+    Number.isFinite(comisionUSD) && comisionUSD > 0 ? comisionUSD : 0
+  const comisionARS = comisionSeguraUSD * cotizacionSegura
+
+  const envioSeguroARS =
+    Number.isFinite(envioAproximadoARS) && envioAproximadoARS > 0
+      ? envioAproximadoARS
+      : 0
+  const envioUSD = envioSeguroARS / cotizacionSegura
+
+  const costoTotalARS = baseARS + comisionARS + envioSeguroARS
+  const costoTotalUSD = baseUSD + comisionSeguraUSD + envioUSD
+
+  return {
+    costoBaseARS: baseARS,
+    costoBaseUSD: baseUSD,
+    comisionUSD: comisionSeguraUSD,
+    comisionARS,
+    envioAproximadoARS: envioSeguroARS,
+    envioAproximadoUSD: envioUSD,
+    costoTotalARS,
+    costoTotalUSD,
+  }
+}
+
 export interface EntradaRentabilidadUnitaria {
   productoId?: number
   costoARS: number
   costoUSD?: number | null
+  costoCalculado?: CalculoCostoPerfume | null
   ml?: number | null
   tipo: TipoProducto
   dolarDelDia: number
@@ -107,6 +175,7 @@ export function calcularRentabilidadUnitaria({
   productoId,
   costoARS,
   costoUSD,
+  costoCalculado,
   ml,
   tipo,
   dolarDelDia,
@@ -115,14 +184,25 @@ export function calcularRentabilidadUnitaria({
 }: EntradaRentabilidadUnitaria): CalculoRentabilidadUnitaria {
   const cotizacionSegura =
     Number.isFinite(dolarDelDia) && dolarDelDia > 0 ? dolarDelDia : 1400
-  const costoBaseARS = Number.isFinite(costoARS) && costoARS > 0 ? costoARS : 0
-  const costoBaseUSD =
-    costoUSD !== null &&
-    costoUSD !== undefined &&
-    Number.isFinite(costoUSD) &&
-    costoUSD > 0
-      ? costoUSD
-      : costoBaseARS / cotizacionSegura
+
+  const resultadoCosto =
+    costoCalculado ??
+    calcularCostoPerfume({
+      costoBaseARS: costoARS,
+      costoBaseUSD: costoUSD,
+      comisionUSD: config.costoEnvioPorPerfumeUSD,
+      envioAproximadoARS: config.costoFijoEnvioEmbalajeARS,
+      dolarDelDia: cotizacionSegura,
+    })
+
+  const {
+    costoBaseARS,
+    costoBaseUSD,
+    comisionARS: costoEnvioPorPerfumeARS,
+    comisionUSD: costoEnvioPorPerfumeUSD,
+    costoTotalARS,
+    costoTotalUSD,
+  } = resultadoCosto
 
   const margenBrutoConfig =
     config.margenPorTipo[tipo] ?? config.margenGeneralPorcentaje
@@ -131,28 +211,11 @@ export function calcularRentabilidadUnitaria({
       ? margenBrutoConfig
       : 0
 
-  const costoEnvioPorPerfumeUSD =
-    Number.isFinite(config.costoEnvioPorPerfumeUSD) &&
-    config.costoEnvioPorPerfumeUSD > 0
-      ? config.costoEnvioPorPerfumeUSD
-      : 0
-  const costoEnvioPorPerfumeARS = costoEnvioPorPerfumeUSD * cotizacionSegura
-
-  const gastoFijoARS =
-    Number.isFinite(config.costoFijoEnvioEmbalajeARS) &&
-    config.costoFijoEnvioEmbalajeARS > 0
-      ? config.costoFijoEnvioEmbalajeARS
-      : 0
-
   const gananciaFijaAdicionalARS =
     Number.isFinite(config.gananciaFijaAdicionalARS) &&
     config.gananciaFijaAdicionalARS > 0
       ? config.gananciaFijaAdicionalARS
       : 0
-
-  const costoTotalARS =
-    costoBaseARS + costoEnvioPorPerfumeARS + gastoFijoARS
-  const costoTotalUSD = costoTotalARS / cotizacionSegura
 
   const comisionBruta = Number.isFinite(config.comisionPlataformaPorcentaje)
     ? config.comisionPlataformaPorcentaje

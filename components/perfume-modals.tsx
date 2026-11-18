@@ -62,6 +62,7 @@ import {
   PLANTILLA_EJEMPLO_IMPORTACION,
 } from '@/lib/importadorListas'
 import {
+  calcularCostoPerfume,
   calcularRentabilidadUnitaria,
   construirUrlBusquedaMercadoLibre,
   construirUrlFragrantica,
@@ -143,6 +144,134 @@ import {
   GraficoEvolucionPrecios,
 } from './perfume-shared'
 
+export function CalcularCostoModal({
+  comisionUSD,
+  envioAproximadoARS,
+  dolarDelDia,
+  onSetComisionUSD,
+  onSetEnvioAproximadoARS,
+  onCerrar,
+}: {
+  comisionUSD: number
+  envioAproximadoARS: number
+  dolarDelDia: number
+  onSetComisionUSD: (valor: number) => void
+  onSetEnvioAproximadoARS: (valor: number) => void
+  onCerrar: () => void
+}) {
+  const cotizacionSegura =
+    Number.isFinite(dolarDelDia) && dolarDelDia > 0 ? dolarDelDia : 1400
+  const recargoTotalARS =
+    (Number.isFinite(comisionUSD) && comisionUSD > 0
+      ? comisionUSD * cotizacionSegura
+      : 0) +
+    (Number.isFinite(envioAproximadoARS) && envioAproximadoARS > 0
+      ? envioAproximadoARS
+      : 0)
+  const recargoTotalUSD = recargoTotalARS / cotizacionSegura
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-xs sm:p-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCerrar()
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-modal-calcular-costo"
+        className="dashboard-card dashboard-modal w-full max-w-[460px] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-violet-600">
+              <Calculator size={12} />
+              Calcular costo
+            </span>
+            <h3
+              id="titulo-modal-calcular-costo"
+              className="mt-0.5 text-[16px] font-semibold tracking-tight text-slate-900"
+            >
+              Comisión y envío aproximado por perfume
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar calcular costo"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3.5">
+          <label className="block rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+            <span className="block text-[12px] font-semibold text-slate-800">
+              Comisión por perfume (USD)
+            </span>
+            <div className="mt-2 flex items-center gap-2.5">
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                aria-label="Comisión por perfume en USD"
+                value={comisionUSD}
+                onChange={(e) => onSetComisionUSD(Number(e.target.value))}
+                className="h-9 w-32 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-bold text-slate-900 outline-none focus:border-violet-400"
+              />
+              <span className="text-[11px] text-slate-500">
+                ≈ {formatearMoneda(comisionUSD * cotizacionSegura, 'ARS')}
+              </span>
+            </div>
+          </label>
+
+          <label className="block rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+            <span className="block text-[12px] font-semibold text-slate-800">
+              Envío aproximado por perfume (ARS)
+            </span>
+            <div className="mt-2 flex items-center gap-2.5">
+              <input
+                type="number"
+                min="0"
+                step="500"
+                aria-label="Envío aproximado por perfume en ARS"
+                value={envioAproximadoARS}
+                onChange={(e) => onSetEnvioAproximadoARS(Number(e.target.value))}
+                className="h-9 w-32 rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-bold text-slate-900 outline-none focus:border-violet-400"
+              />
+              <span className="text-[11px] text-slate-500">
+                ≈ {formatearMoneda(envioAproximadoARS / cotizacionSegura, 'USD')}
+              </span>
+            </div>
+          </label>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-violet-200 bg-violet-50/70 px-3.5 py-2.5">
+          <span className="text-[11px] font-medium text-slate-600">
+            Adicional sumado a cada perfume:
+          </span>
+          <span className="text-[12px] font-bold text-slate-900">
+            +{formatearMoneda(recargoTotalUSD, 'USD')} · +
+            {formatearMoneda(recargoTotalARS, 'ARS')}
+          </span>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="primary-action rounded-lg bg-[#34294d] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#45365f]"
+          >
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function RentabilidadModal({
   config,
   dolarDelDia,
@@ -151,10 +280,7 @@ export function RentabilidadModal({
   onSetMargenGeneral,
   onSetMargenPorTipo,
   onSetComisionPlataforma,
-  onSetCostoFijo,
-  onSetCostoEnvioUSD,
   onSetGananciaFijaARS,
-  onGuardarPrecioManual,
   onSetMostrarEnCatalogo,
   onRestaurar,
   onCerrar,
@@ -166,10 +292,10 @@ export function RentabilidadModal({
   onSetMargenGeneral: (valor: number) => void
   onSetMargenPorTipo: (tipo: TipoProducto, valor: number | null) => void
   onSetComisionPlataforma: (valor: number) => void
-  onSetCostoFijo: (valor: number) => void
-  onSetCostoEnvioUSD: (valor: number) => void
+  onSetCostoFijo?: (valor: number) => void
+  onSetCostoEnvioUSD?: (valor: number) => void
   onSetGananciaFijaARS: (valor: number) => void
-  onGuardarPrecioManual: (
+  onGuardarPrecioManual?: (
     producto: ProductoComparado,
     nuevoPrecioARS: number | null,
   ) => Promise<void>
@@ -184,7 +310,6 @@ export function RentabilidadModal({
   const [mlManual, setMlManual] = useState<string>('100')
   const [tipoManual, setTipoManual] = useState<TipoProducto>('Perfume')
   const [pvpManualSimInput, setPvpManualSimInput] = useState<string>('')
-  const [guardandoPvpManual, setGuardandoPvpManual] = useState(false)
 
   const productoSeleccionado = useMemo(
     () =>
@@ -208,8 +333,8 @@ export function RentabilidadModal({
     setTipoManual(encontrado.tipo)
     setMlManual(encontrado.ml ? String(encontrado.ml) : '')
     const manualActual =
-      encontrado.precioVentaManualARS ??
       config.preciosVentaManualesARS?.[encontrado.producto_id] ??
+      encontrado.precioVentaManualARS ??
       null
     setPvpManualSimInput(
       manualActual !== null && manualActual > 0
@@ -246,10 +371,19 @@ export function RentabilidadModal({
       ? pvpManualNumero
       : null
 
+  const costoCalculadoSim = calcularCostoPerfume({
+    costoBaseARS: costoARS,
+    costoBaseUSD: costoUSD,
+    comisionUSD: config.costoEnvioPorPerfumeUSD,
+    envioAproximadoARS: config.costoFijoEnvioEmbalajeARS,
+    dolarDelDia,
+  })
+
   const resultadoSim = calcularRentabilidadUnitaria({
     productoId: productoSeleccionado?.producto_id,
-    costoARS,
-    costoUSD,
+    costoARS: costoCalculadoSim.costoBaseARS,
+    costoUSD: costoCalculadoSim.costoBaseUSD,
+    costoCalculado: costoCalculadoSim,
     ml: mlValido,
     tipo: tipoManual,
     dolarDelDia,
@@ -263,21 +397,6 @@ export function RentabilidadModal({
     concentracion: productoSeleccionado?.concentracion,
     ml: mlValido,
   })
-
-  const guardarPvpManualDelPerfume = async (limpiar = false) => {
-    if (!productoSeleccionado) return
-    setGuardandoPvpManual(true)
-    try {
-      if (limpiar) {
-        setPvpManualSimInput('')
-        await onGuardarPrecioManual(productoSeleccionado, null)
-      } else if (pvpManualOverride !== null) {
-        await onGuardarPrecioManual(productoSeleccionado, pvpManualOverride)
-      }
-    } finally {
-      setGuardandoPvpManual(false)
-    }
-  }
 
   return (
     <div
@@ -302,7 +421,7 @@ export function RentabilidadModal({
               id="titulo-modal-rentabilidad"
               className="mt-0.5 text-[16px] font-semibold tracking-tight text-slate-900"
             >
-              Comisión de retiro, ganancia fija, márgenes y comparación con ML
+              Márgenes de reventa sobre el costo calculado
             </h3>
           </div>
           <button
@@ -315,94 +434,8 @@ export function RentabilidadModal({
           </button>
         </div>
 
-        {/* Bloque 1: Retiro/Envío a Arg (USD) + Ganancia Fija (ARS) */}
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-700">
-                Comisión retiro / envío a Arg (USD c/u)
-              </span>
-              <div className="flex items-center gap-1">
-                {[3.5, 2, 0].map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => onSetCostoEnvioUSD(val)}
-                    className={`rounded px-2 py-0.5 text-[10px] font-semibold transition ${
-                      config.costoEnvioPorPerfumeUSD === val
-                        ? 'bg-[#34294d] text-white'
-                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    USD {val}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                aria-label="Comisión fija de retiro en USD por perfume"
-                value={config.costoEnvioPorPerfumeUSD}
-                onChange={(e) => onSetCostoEnvioUSD(Number(e.target.value))}
-                className="h-9 w-28 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-800 outline-none focus:border-violet-400"
-              />
-              <span className="text-[11px] text-slate-500">
-                USD/u ≈{' '}
-                <strong>
-                  {formatearMoneda(
-                    config.costoEnvioPorPerfumeUSD * dolarDelDia,
-                    'ARS',
-                  )}
-                </strong>{' '}
-                sumados al costo
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-700">
-                Ganancia fija adicional (ARS c/u)
-              </span>
-              <div className="flex items-center gap-1">
-                {[0, 5000, 10000, 15000].map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => onSetGananciaFijaARS(val)}
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition ${
-                      config.gananciaFijaAdicionalARS === val
-                        ? 'bg-[#34294d] text-white'
-                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {val === 0 ? '$0' : `+$${val / 1000}k`}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                aria-label="Ganancia fija adicional en pesos por perfume"
-                value={config.gananciaFijaAdicionalARS}
-                onChange={(e) => onSetGananciaFijaARS(Number(e.target.value))}
-                className="h-9 w-32 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-800 outline-none focus:border-violet-400"
-              />
-              <span className="text-[11px] text-slate-500">
-                ARS sumados además del {config.margenGeneralPorcentaje}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bloque 2: Margen %, Comisión plataforma % y Embalaje local */}
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* Parámetros de Reventa */}
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="block">
             <span className="text-[11px] font-medium text-slate-600">
               Margen general (%)
@@ -419,7 +452,22 @@ export function RentabilidadModal({
 
           <label className="block">
             <span className="text-[11px] font-medium text-slate-600">
-              Comisión plataforma (%)
+              Ganancia fija adicional (ARS c/u)
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              aria-label="Ganancia fija adicional en pesos por perfume"
+              value={config.gananciaFijaAdicionalARS}
+              onChange={(e) => onSetGananciaFijaARS(Number(e.target.value))}
+              className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-800 outline-none focus:border-violet-400"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-[11px] font-medium text-slate-600">
+              Comisión plataforma venta (%)
             </span>
             <input
               type="number"
@@ -429,19 +477,6 @@ export function RentabilidadModal({
               onChange={(e) =>
                 onSetComisionPlataforma(Number(e.target.value))
               }
-              className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-800 outline-none focus:border-violet-400"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-[11px] font-medium text-slate-600">
-              Embalaje / envío local (ARS)
-            </span>
-            <input
-              type="number"
-              min="0"
-              value={config.costoFijoEnvioEmbalajeARS}
-              onChange={(e) => onSetCostoFijo(Number(e.target.value))}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-800 outline-none focus:border-violet-400"
             />
           </label>
@@ -505,7 +540,7 @@ export function RentabilidadModal({
         <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-[12px] font-semibold text-slate-800">
-              Calculadora rápida y comparador con MercadoLibre
+              Simulador de reventa (utiliza el resultado de Calcular costo)
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {productosGlobales.length > 0 && (
@@ -539,7 +574,7 @@ export function RentabilidadModal({
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <label className="block">
               <span className="text-[10px] font-medium text-slate-500">
-                Costo proveedor
+                Costo base proveedor
               </span>
               <input
                 type="number"
@@ -597,73 +632,16 @@ export function RentabilidadModal({
             </label>
           </div>
 
-          {/* Precio de venta manual (para probar en vivo o guardar en Supabase) */}
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-2 rounded-lg border border-slate-200 bg-white p-2.5">
-            <label className="min-w-[200px] flex-1">
-              <span className="block text-[10px] font-semibold text-slate-600">
-                Precio de venta manual en ARS (opcional, si viste otro valor en ML)
-              </span>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  value={pvpManualSimInput}
-                  onChange={(e) => setPvpManualSimInput(e.target.value)}
-                  placeholder={`Fórmula automática: ${formatearMoneda(
-                    resultadoSim.precioCalculadoFormulaARS,
-                    'ARS',
-                  )}`}
-                  className="h-8 w-full max-w-[220px] rounded-md border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-800 outline-none focus:border-violet-400"
-                />
-                {pvpManualOverride !== null && (
-                  <span className="text-[10px] text-slate-400">
-                    (≈ {formatearMoneda(pvpManualOverride / dolarDelDia, 'USD')})
-                  </span>
-                )}
-              </div>
-            </label>
-
-            {productoSeleccionado && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={guardandoPvpManual || pvpManualOverride === null}
-                  onClick={() => void guardarPvpManualDelPerfume(false)}
-                  className="primary-action inline-flex h-8 items-center gap-1 rounded-md bg-[#34294d] px-3 text-[10px] font-semibold text-white transition hover:bg-[#45365f] disabled:opacity-50"
-                >
-                  <Check size={12} />
-                  Guardar PVP en Supabase
-                </button>
-                {(productoSeleccionado.precioVentaManualARS ||
-                  config.preciosVentaManualesARS?.[
-                    productoSeleccionado.producto_id
-                  ] ||
-                  pvpManualSimInput) && (
-                  <button
-                    type="button"
-                    disabled={guardandoPvpManual}
-                    onClick={() => void guardarPvpManualDelPerfume(true)}
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
-                  >
-                    <RotateCcw size={11} />
-                    Usar fórmula
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
           <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <div className="rounded-lg border border-slate-200 bg-white p-2.5">
               <p className="text-[10px] text-slate-400">
-                Costo total (+USD {config.costoEnvioPorPerfumeUSD} retiro)
+                Costo calculado
               </p>
               <p className="mt-0.5 text-[13px] font-semibold text-slate-800">
-                {formatearMoneda(resultadoSim.costoTotalUSD, 'USD')}
+                {formatearMoneda(costoCalculadoSim.costoTotalUSD, 'USD')}
               </p>
               <p className="text-[10px] text-slate-400">
-                {formatearMoneda(resultadoSim.costoTotalARS, 'ARS')}
+                {formatearMoneda(costoCalculadoSim.costoTotalARS, 'ARS')}
               </p>
             </div>
 

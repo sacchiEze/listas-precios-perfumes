@@ -62,6 +62,7 @@ import {
   PLANTILLA_EJEMPLO_IMPORTACION,
 } from '@/lib/importadorListas'
 import {
+  calcularCostoPerfume,
   calcularRentabilidadUnitaria,
   construirUrlBusquedaMercadoLibre,
   construirUrlFragrantica,
@@ -128,7 +129,6 @@ import {
   TAMANO_PAGINA_INICIAL,
   MAX_TAMANO_PAGINA,
   LIMITE_FILAS_RESUMEN,
-  TIPOS_PRODUCTO_DISPONIBLES,
   obtenerEstiloTipoProducto,
   GENEROS_FILTRO,
   CATEGORIAS_FILTRO,
@@ -172,6 +172,7 @@ export function CatalogSection({
   onQuitarStock,
   onAgregarFaltantesAlCarrito,
   onAbrirModalAlerta,
+  onAbrirCalcularCosto,
   onAbrirRentabilidad,
   onAbrirImportador,
   onGuardarPrecioManual,
@@ -230,6 +231,7 @@ export function CatalogSection({
   onQuitarStock: (productoId: number) => void
   onAgregarFaltantesAlCarrito: () => void
   onAbrirModalAlerta: (producto: ProductoComparado) => void
+  onAbrirCalcularCosto: () => void
   onAbrirRentabilidad: () => void
   onAbrirImportador: () => void
   onGuardarPrecioManual: (
@@ -424,6 +426,15 @@ export function CatalogSection({
           >
             <FileSpreadsheet size={12} className="text-violet-600" />
             <span>Importar lista</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onAbrirCalcularCosto}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+          >
+            <Wallet size={12} className="text-violet-600" />
+            <span>Calcular costo</span>
           </button>
 
           <button
@@ -658,38 +669,6 @@ export function CatalogSection({
 
             <fieldset className="min-w-0">
               <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Tipo de producto
-              </legend>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {(tiposDisponibles.length > 0
-                  ? tiposDisponibles
-                  : TIPOS_PRODUCTO_DISPONIBLES
-                ).map((tipo) => (
-                  <label
-                    key={tipo}
-                    className="flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filtros.tiposSeleccionados.includes(tipo)}
-                      onChange={(event) =>
-                        setFiltros((prev) => ({
-                          ...prev,
-                          tiposSeleccionados: event.target.checked
-                            ? [...prev.tiposSeleccionados, tipo]
-                            : prev.tiposSeleccionados.filter((t) => t !== tipo),
-                        }))
-                      }
-                      className="size-3.5 accent-violet-700"
-                    />
-                    {tipo}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="min-w-0">
-              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Precio (USD)
               </legend>
               <div className="flex items-center gap-1.5">
@@ -832,6 +811,7 @@ export function CatalogSection({
                     </th>
                   ))}
                   <th className="px-3 py-3">Mejor precio</th>
+                  <th className="px-3 py-3">Costo calculado</th>
                   {configRentabilidad.mostrarRentabilidadEnCatalogo && (
                     <th className="px-3 py-3">Reventa sugerida</th>
                   )}
@@ -872,14 +852,26 @@ export function CatalogSection({
                       ? item.ahorroArbitrajeUSD
                       : item.ahorroArbitrajeARS
 
+                  const costoProducto =
+                    item.tieneStockDisponible && item.mejorPrecioARS !== null
+                      ? calcularCostoPerfume({
+                          costoBaseARS: item.mejorPrecioARS,
+                          costoBaseUSD: item.mejorPrecioUSD,
+                          comisionUSD: configRentabilidad.costoEnvioPorPerfumeUSD,
+                          envioAproximadoARS:
+                            configRentabilidad.costoFijoEnvioEmbalajeARS,
+                          dolarDelDia,
+                        })
+                      : null
+
                   const rentabilidadProducto =
                     configRentabilidad.mostrarRentabilidadEnCatalogo &&
-                    item.tieneStockDisponible &&
-                    item.mejorPrecioARS !== null
+                    costoProducto !== null
                       ? calcularRentabilidadUnitaria({
                           productoId: item.producto_id,
-                          costoARS: item.mejorPrecioARS,
-                          costoUSD: item.mejorPrecioUSD,
+                          costoARS: costoProducto.costoBaseARS,
+                          costoUSD: costoProducto.costoBaseUSD,
+                          costoCalculado: costoProducto,
                           ml: item.ml,
                           tipo: item.tipo,
                           dolarDelDia,
@@ -1031,7 +1023,7 @@ export function CatalogSection({
 
                                   {oferta.disponible &&
                                     oferta.precioBaseEnARS !== null && (
-                                      <span className="block text-[11px] font-medium text-slate-500">
+                                      <span className="block text-[13px] font-bold tracking-tight text-slate-900">
                                         {formatearMoneda(
                                           oferta.precioBaseEnARS,
                                           'ARS',
@@ -1100,11 +1092,11 @@ export function CatalogSection({
                         mejorOferta &&
                         item.mejorPrecioUSD !== null ? (
                           <div className="min-w-[130px]">
-                            <span className="text-[13px] font-extrabold text-slate-900">
+                            <span className="block text-[13px] font-bold tracking-tight text-slate-900">
                               {formatearMoneda(item.mejorPrecioUSD, 'USD')}
                             </span>
                             {item.mejorPrecioARS !== null && (
-                              <span className="block text-[11px] font-bold text-slate-700">
+                              <span className="block text-[13px] font-bold tracking-tight text-slate-900">
                                 {formatearMoneda(item.mejorPrecioARS, 'ARS')}
                               </span>
                             )}
@@ -1159,6 +1151,33 @@ export function CatalogSection({
                         )}
                       </td>
 
+                      <td className="px-3 py-3">
+                        {costoProducto ? (
+                          <div className="min-w-[130px]">
+                            <span className="block text-[13px] font-bold tracking-tight text-slate-900">
+                              {formatearMoneda(costoProducto.costoTotalUSD, 'USD')}
+                            </span>
+                            <span className="block text-[13px] font-bold tracking-tight text-slate-900">
+                              {formatearMoneda(costoProducto.costoTotalARS, 'ARS')}
+                            </span>
+                            {(costoProducto.comisionUSD > 0 ||
+                              costoProducto.envioAproximadoARS > 0) && (
+                              <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
+                                +US$ {costoProducto.comisionUSD} com. · +${' '}
+                                {Math.round(
+                                  costoProducto.envioAproximadoARS,
+                                ).toLocaleString('es-AR')}{' '}
+                                envío
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-300">
+                            —
+                          </span>
+                        )}
+                      </td>
+
                       {configRentabilidad.mostrarRentabilidadEnCatalogo && (
                         <td className="px-3 py-3">
                           {rentabilidadProducto ? (
@@ -1209,7 +1228,7 @@ export function CatalogSection({
                               ) : (
                                 <div className="flex flex-col items-start gap-0.5">
                                   <div className="flex flex-wrap items-center gap-1">
-                                    <span className="text-[13px] font-bold text-slate-900">
+                                    <span className="text-[13px] font-bold tracking-tight text-slate-900">
                                       PVP: {formatearMoneda(
                                         rentabilidadProducto.precioVentaSugeridoUSD,
                                         'USD',
@@ -1251,7 +1270,7 @@ export function CatalogSection({
                                       </button>
                                     )}
                                   </div>
-                                  <span className="text-[11px] font-bold text-slate-700">
+                                  <span className="block text-[13px] font-bold tracking-tight text-slate-900">
                                     {formatearMoneda(
                                       rentabilidadProducto.precioVentaSugeridoARS,
                                       'ARS',

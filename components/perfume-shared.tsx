@@ -142,6 +142,23 @@ export const TIPOS_PRODUCTO_DISPONIBLES: TipoProducto[] = [
   'Otro',
 ]
 
+export const SUBRAMAS_CATALOGO: Array<{
+  id: string
+  etiqueta: string
+  tipos: TipoProducto[]
+}> = [
+  { id: 'perfumes', etiqueta: 'Perfumes', tipos: ['Perfume'] },
+  { id: 'kits', etiqueta: 'Kits', tipos: ['Kit'] },
+  {
+    id: 'body-desodorantes',
+    etiqueta: 'Body splash y desodorantes',
+    tipos: ['Body Splash', 'Desodorante'],
+  },
+  { id: 'cremas', etiqueta: 'Cremas', tipos: ['Crema'] },
+  { id: 'aceites', etiqueta: 'Aceites', tipos: ['Aceite'] },
+  { id: 'otros', etiqueta: 'Otros', tipos: ['Otro'] },
+]
+
 export function obtenerEstiloTipoProducto(tipo: TipoProducto): {
   cellClass: string
   badgeClass: string

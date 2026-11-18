@@ -143,6 +143,7 @@ import {
   MAX_TAMANO_PAGINA,
   LIMITE_FILAS_RESUMEN,
   TIPOS_PRODUCTO_DISPONIBLES,
+  SUBRAMAS_CATALOGO,
   obtenerEstiloTipoProducto,
   GENEROS_FILTRO,
   OPCIONES_ORDENAMIENTO,
@@ -156,7 +157,12 @@ import {
   GraficoEvolucionPrecios,
 } from './perfume-shared'
 import { CatalogSection } from './perfume-catalog-section'
-import { RentabilidadModal, AlertaWatchlistModal, ImportadorListasModal } from './perfume-modals'
+import {
+  CalcularCostoModal,
+  RentabilidadModal,
+  AlertaWatchlistModal,
+  ImportadorListasModal,
+} from './perfume-modals'
 
 export function PerfumeWorkspace() {
   const [hidratado, setHidratado] = useState(false)
@@ -180,6 +186,7 @@ export function PerfumeWorkspace() {
   const [monitorTab, setMonitorTab] = useState<
     'arbitraje' | 'bajaron' | 'watchlist'
   >('arbitraje')
+  const [modalCostoAbierto, setModalCostoAbierto] = useState(false)
   const [modalRentabilidadAbierto, setModalRentabilidadAbierto] =
     useState(false)
   const [modalImportadorAbierto, setModalImportadorAbierto] = useState(false)
@@ -941,22 +948,6 @@ export function PerfumeWorkspace() {
         ),
       )
 
-      if (!usandoDemo && estaSupabaseConfigurado()) {
-        try {
-          await actualizarPrecioVentaManualProducto(
-            producto.producto_id,
-            valorNormalizado,
-          )
-        } catch (error) {
-          setErrorCatalogo(
-            error instanceof Error
-              ? error.message
-              : 'No se pudo sincronizar el precio manual en Supabase.',
-          )
-          return
-        }
-      }
-
       setMensajeSyncFotos(
         valorNormalizado !== null
           ? `Precio de venta manual fijado en ${formatearMoneda(
@@ -967,7 +958,7 @@ export function PerfumeWorkspace() {
       )
       setTimeout(() => setMensajeSyncFotos(null), 4000)
     },
-    [setPrecioVentaManualProducto, usandoDemo],
+    [setPrecioVentaManualProducto],
   )
 
   const productoHistorialActivo = useMemo(() => {
@@ -1421,14 +1412,16 @@ export function PerfumeWorkspace() {
   }, [])
 
   const limpiarTodosLosFiltros = () => {
-    setFiltros(FILTROS_CATALOGO_INICIALES)
+    setFiltros((prev) => ({
+      ...FILTROS_CATALOGO_INICIALES,
+      tiposSeleccionados: prev.tiposSeleccionados,
+    }))
     setPrecioMinInput('')
     setPrecioMaxInput('')
   }
 
   const cantidadFiltrosActivos =
     filtros.marcasSeleccionadas.length +
-    filtros.tiposSeleccionados.length +
     (filtros.genero ? 1 : 0) +
     (filtros.categoria ? 1 : 0) +
     (filtros.soloEnStock ? 1 : 0) +
@@ -1511,14 +1504,23 @@ export function PerfumeWorkspace() {
           {navItems.map((item) => {
             const Icon = item.icon
             const activo = view === item.id
-            return (
+            const activoItem =
+              item.id === 'catalog'
+                ? activo && filtros.tiposSeleccionados.length === 0
+                : activo
+            const boton = (
               <button
                 type="button"
                 key={item.id}
-                onClick={() => setView(item.id)}
-                aria-current={activo ? 'page' : undefined}
+                onClick={() => {
+                  if (item.id === 'catalog') {
+                    setFiltros((prev) => ({ ...prev, tiposSeleccionados: [] }))
+                  }
+                  setView(item.id)
+                }}
+                aria-current={activoItem ? 'page' : undefined}
                 className={`sidebar-link flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] transition ${
-                  activo
+                  activoItem
                     ? 'sidebar-link-active font-semibold'
                     : 'font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                 }`}
@@ -1532,6 +1534,44 @@ export function PerfumeWorkspace() {
                 ) : null}
               </button>
             )
+            const subramas =
+              item.id === 'catalog' ? (
+                <div
+                  key="catalog-subramas"
+                  className="flex shrink-0 gap-1 lg:ml-[26px] lg:flex-col lg:border-l lg:border-slate-100 lg:pl-2"
+                >
+                  {SUBRAMAS_CATALOGO.map((sub) => {
+                    const activoSub =
+                      view === 'catalog' &&
+                      filtros.tiposSeleccionados.length === sub.tipos.length &&
+                      sub.tipos.every((t) =>
+                        filtros.tiposSeleccionados.includes(t),
+                      )
+                    return (
+                      <button
+                        type="button"
+                        key={sub.id}
+                        onClick={() => {
+                          setFiltros((prev) => ({
+                            ...prev,
+                            tiposSeleccionados: [...sub.tipos],
+                          }))
+                          setView('catalog')
+                        }}
+                        aria-current={activoSub ? 'page' : undefined}
+                        className={`shrink-0 rounded-md px-3 py-1.5 text-left text-[12px] transition ${
+                          activoSub
+                            ? 'bg-slate-100 font-semibold text-slate-900'
+                            : 'font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        {sub.etiqueta}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : null
+            return subramas ? [boton, subramas] : boton
           })}
         </nav>
 
@@ -1718,13 +1758,23 @@ export function PerfumeWorkspace() {
 
             <button
               type="button"
+              onClick={() => setModalCostoAbierto(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50"
+              aria-label="Abrir calculadora de costo por perfume"
+            >
+              <Wallet size={12} className="text-violet-600" />
+              <span>Calcular costo</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setModalRentabilidadAbierto(true)}
               className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] font-semibold text-violet-700 transition hover:bg-violet-100"
               aria-label="Abrir configuración de margen y calculadora de reventa"
             >
               <Calculator size={12} />
               <span className="hidden sm:inline">
-                Margen +{configRentabilidad.margenGeneralPorcentaje}% · Calculadora
+                Reventa +{configRentabilidad.margenGeneralPorcentaje}%
               </span>
               <span className="sm:hidden">
                 +{configRentabilidad.margenGeneralPorcentaje}%
@@ -2447,6 +2497,7 @@ export function PerfumeWorkspace() {
                 onQuitarStock={quitarStockProducto}
                 onAgregarFaltantesAlCarrito={agregarFaltantesAlCarrito}
                 onAbrirModalAlerta={setProductoAlertaModal}
+                onAbrirCalcularCosto={() => setModalCostoAbierto(true)}
                 onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
                 onAbrirImportador={() => setModalImportadorAbierto(true)}
                 onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
@@ -2499,6 +2550,7 @@ export function PerfumeWorkspace() {
               onQuitarStock={quitarStockProducto}
               onAgregarFaltantesAlCarrito={agregarFaltantesAlCarrito}
               onAbrirModalAlerta={setProductoAlertaModal}
+              onAbrirCalcularCosto={() => setModalCostoAbierto(true)}
               onAbrirRentabilidad={() => setModalRentabilidadAbierto(true)}
               onAbrirImportador={() => setModalImportadorAbierto(true)}
               onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
@@ -3709,6 +3761,17 @@ export function PerfumeWorkspace() {
           }}
           onGuardarUrl={manejarGuardarUrlManual}
           onGuardarArchivoOptimizado={manejarGuardarArchivoOptimizado}
+        />
+      )}
+
+      {modalCostoAbierto && (
+        <CalcularCostoModal
+          comisionUSD={configRentabilidad.costoEnvioPorPerfumeUSD}
+          envioAproximadoARS={configRentabilidad.costoFijoEnvioEmbalajeARS}
+          dolarDelDia={dolarDelDia}
+          onSetComisionUSD={setCostoEnvioPorPerfumeUSD}
+          onSetEnvioAproximadoARS={setCostoFijoEnvioEmbalajeARS}
+          onCerrar={() => setModalCostoAbierto(false)}
         />
       )}
 

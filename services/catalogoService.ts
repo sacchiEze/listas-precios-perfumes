@@ -343,3 +343,52 @@ export async function actualizarCategoriaProducto(
     throw new Error(mensajeError)
   }
 }
+
+/** Alias de nombres creados al fusionar perfumes (nombre normalizado -> producto). */
+export interface AliasProducto {
+  marca_norm: string
+  nombre_norm: string
+  ml: number
+  producto_id: number
+}
+
+export async function obtenerAliasProductos(): Promise<AliasProducto[]> {
+  if (!estaSupabaseConfigurado()) return []
+  try {
+    const respuesta = await fetch('/api/productos/alias', { cache: 'no-store' })
+    if (!respuesta.ok) return []
+    const datos = (await respuesta.json()) as { alias?: AliasProducto[] }
+    return datos.alias ?? []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Fusiona `origenId` dentro de `destinoId` en la base de datos
+ * y registra el nombre del origen como alias para futuras importaciones.
+ */
+export async function fusionarProductos(
+  origenId: number,
+  destinoId: number,
+  nombre?: string,
+): Promise<void> {
+  if (!estaSupabaseConfigurado()) return
+
+  const respuesta = await fetch('/api/productos/fusionar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ origenId, destinoId, nombre }),
+  })
+
+  if (!respuesta.ok) {
+    let mensajeError = `Error HTTP ${respuesta.status}`
+    try {
+      const datos = (await respuesta.json()) as { error?: string }
+      if (datos?.error) mensajeError = datos.error
+    } catch {
+      // Mantenemos el mensaje por estado HTTP
+    }
+    throw new Error(mensajeError)
+  }
+}

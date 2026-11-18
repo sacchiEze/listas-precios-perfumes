@@ -28,6 +28,7 @@ import {
   ExternalLink,
   FileSpreadsheet,
   Filter,
+  GitMerge,
   LayoutDashboard,
   Loader2,
   Moon,
@@ -175,6 +176,7 @@ export function CatalogSection({
   onAbrirImportador,
   onGuardarPrecioManual,
   onCambiarCategoria,
+  onFusionar,
   cargandoCatalogo,
   onAdd,
   onHistory,
@@ -239,6 +241,7 @@ export function CatalogSection({
     producto: ProductoComparado,
     nuevaCategoria: CategoriaPerfume | null,
   ) => Promise<void>
+  onFusionar: (producto: ProductoComparado) => void
   onAdd: (producto: ProductoComparado, oferta: OfertaProveedor) => void
   onHistory: (producto: ProductoComparado) => void
   onFiltrarMarca: (marca: string) => void
@@ -281,6 +284,7 @@ export function CatalogSection({
       ? proveedoresDisponibles
       : [filtros.pestanaActiva]
 
+  const [marcasAbiertas, setMarcasAbiertas] = useState(false)
   const [editandoPrecioId, setEditandoPrecioId] = useState<number | null>(null)
   const [precioManualInput, setPrecioManualInput] = useState<string>('')
   const [guardandoPrecioId, setGuardandoPrecioId] = useState<number | null>(null)
@@ -602,170 +606,180 @@ export function CatalogSection({
       </div>
 
       {filtersOpen && (
-        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3.5 sm:px-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3.5 sm:px-5">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            <fieldset className="min-w-0">
+              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Género
-              </span>
-              {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
-                <button
-                  type="button"
-                  key={etiqueta}
-                  onClick={() =>
-                    setFiltros((prev) => ({ ...prev, genero: valor }))
-                  }
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    filtros.genero === valor
-                      ? 'bg-[#34294d] text-white'
-                      : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                  }`}
-                >
-                  {etiqueta}
-                </button>
-              ))}
-            </div>
+              </legend>
+              <div className="flex flex-wrap gap-1">
+                {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
+                  <button
+                    type="button"
+                    key={etiqueta}
+                    onClick={() =>
+                      setFiltros((prev) => ({ ...prev, genero: valor }))
+                    }
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      filtros.genero === valor
+                        ? 'bg-[#34294d] text-white'
+                        : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                    }`}
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <fieldset className="min-w-0">
+              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Categoría
-              </span>
-              {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
-                <button
-                  type="button"
-                  key={etiqueta}
-                  onClick={() =>
-                    setFiltros((prev) => ({ ...prev, categoria: valor }))
-                  }
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    filtros.categoria === valor
-                      ? 'bg-[#34294d] text-white'
-                      : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                  }`}
-                >
-                  {etiqueta}
-                </button>
-              ))}
-            </div>
+              </legend>
+              <div className="flex flex-wrap gap-1">
+                {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
+                  <button
+                    type="button"
+                    key={etiqueta}
+                    onClick={() =>
+                      setFiltros((prev) => ({ ...prev, categoria: valor }))
+                    }
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      filtros.categoria === valor
+                        ? 'bg-[#34294d] text-white'
+                        : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                    }`}
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Tipo
-              </span>
-              <select
-                aria-label="Filtrar por tipo de producto"
-                value={filtros.tiposSeleccionados[0] ?? 'TODOS'}
-                onChange={(event) => {
-                  const valor = event.target.value
-                  setFiltros((prev) => ({
-                    ...prev,
-                    tiposSeleccionados: valor === 'TODOS' ? [] : [valor],
-                  }))
-                }}
-                className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
-              >
-                <option value="TODOS">Todos</option>
+            <fieldset className="min-w-0">
+              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Tipo de producto
+              </legend>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
                 {(tiposDisponibles.length > 0
                   ? tiposDisponibles
                   : TIPOS_PRODUCTO_DISPONIBLES
                 ).map((tipo) => (
-                  <option key={tipo} value={tipo}>
+                  <label
+                    key={tipo}
+                    className="flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filtros.tiposSeleccionados.includes(tipo)}
+                      onChange={(event) =>
+                        setFiltros((prev) => ({
+                          ...prev,
+                          tiposSeleccionados: event.target.checked
+                            ? [...prev.tiposSeleccionados, tipo]
+                            : prev.tiposSeleccionados.filter((t) => t !== tipo),
+                        }))
+                      }
+                      className="size-3.5 accent-violet-700"
+                    />
                     {tipo}
-                  </option>
+                  </label>
                 ))}
-              </select>
-            </div>
+              </div>
+            </fieldset>
 
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <fieldset className="min-w-0">
+              <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Precio (USD)
-              </span>
-              <input
-                aria-label="Precio mínimo"
-                type="number"
-                min="0"
-                value={precioMinInput}
-                onChange={(event) => setPrecioMinInput(event.target.value)}
-                placeholder="Mín"
-                className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
-              />
-              <span className="text-[10px] text-slate-400">-</span>
-              <input
-                aria-label="Precio máximo"
-                type="number"
-                min="0"
-                value={precioMaxInput}
-                onChange={(event) => setPrecioMaxInput(event.target.value)}
-                placeholder="Máx"
-                className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
-              />
-            </div>
+              </legend>
+              <div className="flex items-center gap-1.5">
+                <input
+                  aria-label="Precio mínimo"
+                  type="number"
+                  min="0"
+                  value={precioMinInput}
+                  onChange={(event) => setPrecioMinInput(event.target.value)}
+                  placeholder="Mín"
+                  className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                />
+                <span className="text-[10px] text-slate-400">-</span>
+                <input
+                  aria-label="Precio máximo"
+                  type="number"
+                  min="0"
+                  value={precioMaxInput}
+                  onChange={(event) => setPrecioMaxInput(event.target.value)}
+                  placeholder="Máx"
+                  className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                />
+              </div>
+              <label className="mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={filtros.soloEnStock}
+                  onChange={(event) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      soloEnStock: event.target.checked,
+                    }))
+                  }
+                  className="size-3.5 accent-violet-700"
+                />
+                Solo con stock
+              </label>
+            </fieldset>
+          </div>
 
-            <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-slate-600">
-              <input
-                type="checkbox"
-                checked={filtros.soloEnStock}
-                onChange={(event) =>
-                  setFiltros((prev) => ({
-                    ...prev,
-                    soloEnStock: event.target.checked,
-                  }))
-                }
-                className="size-3.5 accent-violet-700"
-              />
-              Solo con stock
-            </label>
-
+          <div className="mt-3 flex items-start gap-3 border-t border-slate-200/70 pt-2.5">
+            {marcasDisponibles.length > 0 && (
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setMarcasAbiertas((v) => !v)}
+                  aria-expanded={marcasAbiertas}
+                  className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700"
+                >
+                  Marcas
+                  {filtros.marcasSeleccionadas.length > 0 &&
+                    ` (${filtros.marcasSeleccionadas.length})`}
+                  <ChevronDown
+                    size={12}
+                    className={marcasAbiertas ? 'rotate-180' : ''}
+                  />
+                </button>
+                {marcasAbiertas && (
+                  <div className="mt-2 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+                    {marcasDisponibles.map((marca) => {
+                      const seleccionada =
+                        filtros.marcasSeleccionadas.includes(marca)
+                      return (
+                        <button
+                          type="button"
+                          key={marca}
+                          onClick={() => alternarMarcaFiltro(marca)}
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                            seleccionada
+                              ? 'bg-[#34294d] text-white'
+                              : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                          }`}
+                        >
+                          {marca}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             <button
               type="button"
               onClick={onLimpiarFiltros}
-              className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
+              className="ml-auto flex shrink-0 items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
             >
               <X size={12} />
               Limpiar
             </button>
           </div>
-
-          {marcasDisponibles.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-200/70 pt-2.5">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Marcas
-              </span>
-              <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFiltros((prev) => ({ ...prev, marcasSeleccionadas: [] }))
-                  }
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${
-                    filtros.marcasSeleccionadas.length === 0
-                      ? 'bg-[#34294d] text-white'
-                      : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                  }`}
-                >
-                  Todas
-                </button>
-                {marcasDisponibles.map((marca) => {
-                  const seleccionada =
-                    filtros.marcasSeleccionadas.includes(marca)
-                  return (
-                    <button
-                      type="button"
-                      key={marca}
-                      onClick={() => alternarMarcaFiltro(marca)}
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${
-                        seleccionada
-                          ? 'bg-[#34294d] text-white'
-                          : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                      }`}
-                    >
-                      {marca}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -949,6 +963,12 @@ export function CatalogSection({
                               · {item.concentracion ?? item.tipo}
                               {item.ml !== null ? ` · ${item.ml} ml` : ''}
                               {item.genero ? ` · ${item.genero}` : ''}
+                              <span
+                                className="ml-1 rounded bg-slate-100 px-1 font-mono text-[10px] text-slate-500"
+                                title="ID del perfume (para fusionar duplicados)"
+                              >
+                                #{item.producto_id}
+                              </span>
                             </span>
                           </span>
                         </div>
@@ -1342,6 +1362,15 @@ export function CatalogSection({
                             className="row-action flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
                           >
                             <TrendingDown size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onFusionar(item)}
+                            aria-label={`Fusionar ${item.nombre} con otro perfume`}
+                            title="Fusionar con otro perfume (mismo perfume con otro nombre)"
+                            className="row-action flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
+                          >
+                            <GitMerge size={14} />
                           </button>
                           {mejorOferta && mejorOferta.disponible && (
                             <button

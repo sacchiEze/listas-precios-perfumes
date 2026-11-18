@@ -28,6 +28,7 @@ import {
   ExternalLink,
   FileSpreadsheet,
   Filter,
+  GitMerge,
   LayoutDashboard,
   Loader2,
   Moon,
@@ -56,6 +57,17 @@ import {
   useCatalogoPerfumes,
 } from '@/hooks/useCatalogoPerfumes'
 import {
+  ModalFusionManual,
+  ModalFusionPorId,
+  ModalSugerenciasFusion,
+} from '@/components/fusion-perfumes-modals'
+import { detectarDuplicados, claveParDescartado, type ParFusion } from '@/lib/detectorDuplicados'
+import {
+  reapuntarDatosLocalesFusion,
+  useDuplicadosDescartadosStore,
+} from '@/store/useFusionPerfumes'
+import {
+  type AliasImportacion,
   aplicarImportacionEnMemoria,
   generarPrevisualizacionImportacion,
   PLANTILLA_EJEMPLO_IMPORTACION,
@@ -76,6 +88,8 @@ import {
   actualizarCategoriaProducto,
   actualizarImagenProducto,
   actualizarPrecioVentaManualProducto,
+  fusionarProductos,
+  obtenerAliasProductos,
   obtenerHistorialPorProducto,
   obtenerMapaVariacionesPrecios,
   obtenerTodoElCatalogo,
@@ -169,6 +183,15 @@ export function PerfumeWorkspace() {
   const [modalRentabilidadAbierto, setModalRentabilidadAbierto] =
     useState(false)
   const [modalImportadorAbierto, setModalImportadorAbierto] = useState(false)
+  const [aliasProductos, setAliasProductos] = useState<AliasImportacion[]>([])
+  const [productoFusionManual, setProductoFusionManual] =
+    useState<ProductoComparado | null>(null)
+  const [modalSugerenciasAbierto, setModalSugerenciasAbierto] = useState(false)
+  const [modalFusionIdAbierto, setModalFusionIdAbierto] = useState(false)
+  const paresDescartadosStore = useDuplicadosDescartadosStore((e) => e.pares)
+  const descartarParDuplicado = useDuplicadosDescartadosStore(
+    (e) => e.descartarPar,
+  )
   const [actualizandoDolar, setActualizandoDolar] = useState(false)
   const [productoAlertaModal, setProductoAlertaModal] =
     useState<ProductoComparado | null>(null)
@@ -401,6 +424,35 @@ export function PerfumeWorkspace() {
     return ids
   }, [registrosStockPropio])
 
+  // Fusiona sola los duplicados de alta confianza (mismo perfume con nombre levemente distinto)
+  const autoFusionarAltaConfianza = useCallback(
+    async (filas: FilaVistaComparador[]): Promise<number> => {
+      const { altaConfianza } = detectarDuplicados(filas)
+      let fusionados = 0
+      for (const par of altaConfianza) {
+        try {
+          await fusionarProductos(par.origenId, par.destinoId, par.nombreFinal)
+          reapuntarDatosLocalesFusion(
+            par.origenId,
+            par.destinoId,
+            par.nombreFinal,
+          )
+          fusionados += 1
+        } catch {
+          // Si falla un par (p. ej. conflicto de proveedor) seguimos con el resto.
+        }
+      }
+      if (fusionados > 0) {
+        setMensajeSyncFotos(
+          `Se fusionaron automáticamente ${fusionados} perfume(s) duplicado(s).`,
+        )
+        setTimeout(() => setMensajeSyncFotos(null), 6000)
+      }
+      return fusionados
+    },
+    [],
+  )
+
   // Carga completa paginada desde vista_comparador en Supabase
   const cargarCatalogo = useCallback(async () => {
     setCargandoCatalogo(true)
@@ -415,7 +467,11 @@ export function PerfumeWorkspace() {
     }
 
     try {
-      const filas = await obtenerTodoElCatalogo()
+      let filas = await obtenerTodoElCatalogo()
+      if ((await autoFusionarAltaConfianza(filas)) > 0) {
+        filas = await obtenerTodoElCatalogo()
+      }
+      setAliasProductos(await obtenerAliasProductos())
       setFilasCatalogo(filas)
       setUsandoDemo(false)
 
@@ -453,7 +509,7 @@ export function PerfumeWorkspace() {
     } finally {
       setCargandoCatalogo(false)
     }
-  }, [sincronizarPreciosManualesDesdeCatalogo])
+  }, [sincronizarPreciosManualesDesdeCatalogo, autoFusionarAltaConfianza])
 
   useEffect(() => {
     void cargarCatalogo()
@@ -773,11 +829,63 @@ export function PerfumeWorkspace() {
     setMapaVariaciones((prev) => ({ ...prev, ...nuevasVariaciones }))
     setModalImportadorAbierto(false)
 
+    // Si la lista trajo duplicados evidentes de otro proveedor, se fusionan solos.
+    if (!datos.modoDemo && (await autoFusionarAltaConfianza(nuevasFilas)) > 0) {
+      await cargarCatalogo()
+    }
+
     setMensajeSyncFotos(
       `Lista de ${resumen.proveedor} importada: ${resumen.items.length} ítems procesados (${resumen.conteoBajasPrecio} bajas, ${resumen.conteoSubasPrecio} subas, ${resumen.conteoNuevosProductos + resumen.conteoNuevasOfertas} nuevos).`,
     )
     setTimeout(() => setMensajeSyncFotos(null), 6000)
   }
+
+  const sugerenciasFusion = useMemo(
+    () =>
+      detectarDuplicados(
+        filasCatalogo,
+        new Set(hidratado ? paresDescartadosStore : []),
+      ).sugerencias,
+    [filasCatalogo, hidratado, paresDescartadosStore],
+  )
+
+  const manejarFusionarPerfumes = useCallback(
+    async (origenId: number, destinoId: number, nombreFinal: string) => {
+      if (!usandoDemo) {
+        await fusionarProductos(origenId, destinoId, nombreFinal)
+      }
+      reapuntarDatosLocalesFusion(origenId, destinoId, nombreFinal)
+      setProductoFusionManual(null)
+      await cargarCatalogo()
+      setMensajeSyncFotos(`Perfumes fusionados en «${nombreFinal}».`)
+      setTimeout(() => setMensajeSyncFotos(null), 5000)
+    },
+    [usandoDemo, cargarCatalogo],
+  )
+
+  const manejarFusionarPorId = useCallback(
+    async (ids: number[], nombreFinal: string) => {
+      // El destino es el perfume con más proveedores (en empate, el primer ID escrito)
+      const ofertasDe = (id: number) =>
+        productosGlobales.find((p) => p.producto_id === id)?.ofertas ?? {}
+      const destinoId = [...ids].sort(
+        (a, b) =>
+          Object.keys(ofertasDe(b)).length - Object.keys(ofertasDe(a)).length,
+      )[0]
+
+      for (const origenId of ids.filter((id) => id !== destinoId)) {
+        if (!usandoDemo) {
+          await fusionarProductos(origenId, destinoId, nombreFinal)
+        }
+        reapuntarDatosLocalesFusion(origenId, destinoId, nombreFinal)
+      }
+      setModalFusionIdAbierto(false)
+      await cargarCatalogo()
+      setMensajeSyncFotos(`${ids.length} perfumes fusionados en «${nombreFinal}».`)
+      setTimeout(() => setMensajeSyncFotos(null), 5000)
+    },
+    [productosGlobales, usandoDemo, cargarCatalogo],
+  )
 
   const manejarCambiarCategoriaProducto = useCallback(
     async (
@@ -1636,6 +1744,31 @@ export function PerfumeWorkspace() {
 
             <button
               type="button"
+              onClick={() => setModalFusionIdAbierto(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50"
+              aria-label="Fusionar perfumes por ID"
+              title="Fusionar perfumes duplicados escribiendo sus ID"
+            >
+              <GitMerge size={12} />
+              <span className="hidden md:inline">Fusionar por ID</span>
+            </button>
+
+            {sugerenciasFusion.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setModalSugerenciasAbierto(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] font-semibold text-violet-700 transition hover:bg-violet-100"
+                aria-label="Revisar posibles perfumes duplicados"
+                title="Revisar posibles perfumes duplicados"
+              >
+                <GitMerge size={12} />
+                <span className="hidden md:inline">Duplicados</span>
+                <span>({sugerenciasFusion.length})</span>
+              </button>
+            )}
+
+            <button
+              type="button"
               onClick={() => void manejarSincronizarFotos()}
               disabled={sincronizandoFotos}
               title="Sincronizar fotos faltantes"
@@ -2318,6 +2451,7 @@ export function PerfumeWorkspace() {
                 onAbrirImportador={() => setModalImportadorAbierto(true)}
                 onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
                 onCambiarCategoria={manejarCambiarCategoriaProducto}
+                onFusionar={setProductoFusionManual}
                 cargandoCatalogo={cargandoCatalogo}
                 onAdd={manejarAgregarAlCarrito}
                 onHistory={abrirDetallePerfume}
@@ -2369,6 +2503,7 @@ export function PerfumeWorkspace() {
               onAbrirImportador={() => setModalImportadorAbierto(true)}
               onGuardarPrecioManual={manejarGuardarPrecioVentaManual}
               onCambiarCategoria={manejarCambiarCategoriaProducto}
+                onFusionar={setProductoFusionManual}
               cargandoCatalogo={cargandoCatalogo}
               onAdd={manejarAgregarAlCarrito}
               onHistory={abrirDetallePerfume}
@@ -3617,8 +3752,39 @@ export function PerfumeWorkspace() {
         <ImportadorListasModal
           proveedoresDisponibles={proveedoresDisponibles}
           productosGlobales={productosGlobales}
+          alias={aliasProductos}
           onImportar={manejarAplicarImportacion}
           onCerrar={() => setModalImportadorAbierto(false)}
+        />
+      )}
+
+      {modalFusionIdAbierto && (
+        <ModalFusionPorId
+          productos={productosGlobales}
+          onFusionar={manejarFusionarPorId}
+          onCerrar={() => setModalFusionIdAbierto(false)}
+        />
+      )}
+
+      {productoFusionManual && (
+        <ModalFusionManual
+          producto={productoFusionManual}
+          productos={productosGlobales}
+          onFusionar={manejarFusionarPerfumes}
+          onCerrar={() => setProductoFusionManual(null)}
+        />
+      )}
+
+      {modalSugerenciasAbierto && (
+        <ModalSugerenciasFusion
+          sugerencias={sugerenciasFusion}
+          onAceptar={(par: ParFusion) =>
+            manejarFusionarPerfumes(par.origenId, par.destinoId, par.nombreFinal)
+          }
+          onDescartar={(par: ParFusion) =>
+            descartarParDuplicado(claveParDescartado(par.origenId, par.destinoId))
+          }
+          onCerrar={() => setModalSugerenciasAbierto(false)}
         />
       )}
     </main>

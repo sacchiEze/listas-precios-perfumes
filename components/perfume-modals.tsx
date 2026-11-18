@@ -56,6 +56,7 @@ import {
   useCatalogoPerfumes,
 } from '@/hooks/useCatalogoPerfumes'
 import {
+  type AliasImportacion,
   aplicarImportacionEnMemoria,
   generarPrevisualizacionImportacion,
   PLANTILLA_EJEMPLO_IMPORTACION,
@@ -979,11 +980,13 @@ export function AlertaWatchlistModal({
 export function ImportadorListasModal({
   proveedoresDisponibles,
   productosGlobales,
+  alias = [],
   onImportar,
   onCerrar,
 }: {
   proveedoresDisponibles: string[]
   productosGlobales: ProductoComparado[]
+  alias?: AliasImportacion[]
   onImportar: (resumen: ResumenPrevisualizacionImportacion) => Promise<void>
   onCerrar: () => void
 }) {
@@ -1013,8 +1016,9 @@ export function ImportadorListasModal({
       moneda,
       productosGlobales,
       tipoLista,
+      alias,
     )
-  }, [textoLista, proveedorFinal, moneda, productosGlobales, tipoLista])
+  }, [textoLista, proveedorFinal, moneda, productosGlobales, tipoLista, alias])
 
   const itemsConCategoria = useMemo(() => {
     if (!resumen) return []

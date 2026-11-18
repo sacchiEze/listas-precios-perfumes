@@ -15,6 +15,14 @@ import type {
   TipoProducto,
 } from '@/types/perfumeria'
 
+/** Nombre alternativo (normalizado) que apunta a un perfume ya existente. */
+export interface AliasImportacion {
+  marca_norm: string
+  nombre_norm: string
+  ml: number
+  producto_id: number
+}
+
 export const PLANTILLA_EJEMPLO_IMPORTACION = [
   'Marca;Nombre;ML;Concentracion;PrecioBase;Precio12;Precio24;Stock',
   'Lattafa;Asad Bourbon;100;EDP;27.50;25.50;24.00;Disponible',
@@ -496,21 +504,46 @@ export function generarPrevisualizacionImportacion(
   moneda: Moneda,
   productosExistentes: ProductoComparado[],
   tipoLista: TipoListaImportacion = 'Arabe',
+  alias: AliasImportacion[] = [],
 ): ResumenPrevisualizacionImportacion {
   const { filas, errores } = parsearTextoListaProveedor(texto)
   const proveedorLimpio = proveedor.trim() || 'Nuevo Proveedor'
 
+  const porId = new Map<number, ProductoComparado>()
   const porEan = new Map<string, ProductoComparado>()
-  const porMarcaNombre = new Map<string, ProductoComparado>()
+  const porMarcaNombre = new Map<string, ProductoComparado[]>()
   const porNombreSolo = new Map<string, ProductoComparado>()
+  const porAlias = new Map<string, ProductoComparado>()
 
   for (const prod of productosExistentes) {
+    porId.set(prod.producto_id, prod)
     if (prod.ean6) {
       porEan.set(normalizarTextoImportacion(prod.ean6), prod)
     }
     const claveFull = normalizarTextoImportacion(`${prod.marca} ${prod.nombre}`)
-    porMarcaNombre.set(claveFull, prod)
+    const candidatos = porMarcaNombre.get(claveFull) ?? []
+    candidatos.push(prod)
+    porMarcaNombre.set(claveFull, candidatos)
     porNombreSolo.set(normalizarTextoImportacion(prod.nombre), prod)
+  }
+
+  for (const a of alias) {
+    const destino = porId.get(a.producto_id)
+    if (destino) porAlias.set(`${a.marca_norm} ${a.nombre_norm}|${a.ml}`, destino)
+  }
+
+  const elegirPorMl = (
+    candidatos: ProductoComparado[] | undefined,
+    ml: number | null,
+  ): ProductoComparado | undefined => {
+    if (!candidatos || candidatos.length === 0) return undefined
+    if (ml !== null) {
+      return (
+        candidatos.find((c) => c.ml === ml) ??
+        candidatos.find((c) => c.ml === null)
+      )
+    }
+    return candidatos.length === 1 ? candidatos[0] : undefined
   }
 
   let conteoNuevosProductos = 0
@@ -528,9 +561,16 @@ export function generarPrevisualizacionImportacion(
     }
     if (!match) {
       const claveFull = normalizarTextoImportacion(`${fila.marca} ${fila.nombre}`)
+      // 1) Alias creado al fusionar (con ml exacto y, si no, sin ml)
       match =
-        porMarcaNombre.get(claveFull) ??
-        porNombreSolo.get(normalizarTextoImportacion(fila.nombre))
+        porAlias.get(`${claveFull}|${fila.ml ?? 0}`) ??
+        porAlias.get(`${claveFull}|0`)
+      // 2) Misma marca + nombre, respetando los ml
+      if (!match) match = elegirPorMl(porMarcaNombre.get(claveFull), fila.ml)
+      // 3) Solo por nombre únicamente cuando la lista no informa marca
+      if (!match && normalizarTextoImportacion(fila.marca) === 'sin marca') {
+        match = porNombreSolo.get(normalizarTextoImportacion(fila.nombre))
+      }
     }
 
     if (!match) {

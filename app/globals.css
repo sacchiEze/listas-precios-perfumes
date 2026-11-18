@@ -278,6 +278,13 @@
   background-color: #1b1a21;
 }
 
+/* En modo oscuro, los recuadros y contenedores de fotos de perfumes deben conservar fondo blanco para que las imágenes transparentes/blancas se integren limpiamente */
+.dashboard-dark .group\/img,
+.dashboard-dark img.bg-white,
+.dashboard-dark .bg-white:has(> img) {
+  background-color: #ffffff;
+}
+
 .dashboard-dark .bg-slate-50,
 .dashboard-dark .bg-slate-50\/70,
 .dashboard-dark .bg-slate-50\/\[0\.7\],

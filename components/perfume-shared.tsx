@@ -166,20 +166,23 @@ export function obtenerEstiloTipoProducto(tipo: TipoProducto): {
   if (tipo === 'Desodorante' || tipo === 'Body Splash') {
     return {
       cellClass: 'producto-tipo-perfume',
-      badgeClass: 'border-orange-200 bg-orange-100 text-orange-800',
+      badgeClass:
+        'border-orange-200 bg-orange-100 text-orange-800 dark:border-orange-500/35 dark:bg-orange-500/15 dark:text-orange-200',
     }
   }
 
   if (tipo === 'Crema' || tipo === 'Aceite' || tipo === 'Otro') {
     return {
       cellClass: 'producto-tipo-no-fragancia',
-      badgeClass: 'border-red-200 bg-red-100 text-red-800',
+      badgeClass:
+        'border-red-200 bg-red-100 text-red-800 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-200',
     }
   }
 
   return {
     cellClass: 'producto-tipo-perfume',
-    badgeClass: 'border-slate-200 bg-white text-slate-600',
+    badgeClass:
+      'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300',
   }
 }
 
@@ -227,17 +230,17 @@ export function obtenerEstiloCategoriaPerfume(
 ): string {
   switch (categoria) {
     case 'Arabe':
-      return 'border-amber-200 bg-amber-50/90 text-amber-800'
+      return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-200'
     case 'Nicho':
-      return 'border-indigo-200 bg-indigo-50/90 text-indigo-800'
+      return 'border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-500/35 dark:bg-indigo-500/15 dark:text-indigo-200'
     case 'Disenador':
-      return 'border-violet-200 bg-violet-50/90 text-violet-800'
+      return 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-500/35 dark:bg-violet-500/15 dark:text-violet-200'
     case 'Catalogo':
-      return 'border-emerald-200 bg-emerald-50/90 text-emerald-800'
+      return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200'
     case 'Asiatico':
-      return 'border-sky-200 bg-sky-50/90 text-sky-800'
+      return 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-500/35 dark:bg-sky-500/15 dark:text-sky-200'
     default:
-      return 'border-slate-200 bg-slate-100 text-slate-500'
+      return 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
   }
 }
 

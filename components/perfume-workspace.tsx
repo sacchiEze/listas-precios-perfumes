@@ -1809,6 +1809,14 @@ export function PerfumeWorkspace() {
     [itemsCarrito],
   )
 
+  const cantidadesEnCarritoPorProducto = useMemo(() => {
+    const mapa = new Map<number, number>()
+    for (const item of itemsCarrito) {
+      mapa.set(item.productoId, (mapa.get(item.productoId) ?? 0) + item.cantidad)
+    }
+    return mapa
+  }, [itemsCarrito])
+
   const totalGeneralUSD = useMemo(
     () => resumenesCarrito.reduce((acum, r) => acum + r.totalEnUSD, 0),
     [resumenesCarrito],
@@ -2476,14 +2484,14 @@ export function PerfumeWorkspace() {
       </aside>
 
       <div className="dashboard-main min-w-0 lg:ml-[248px]">
-        <header className="dashboard-topbar flex min-h-[66px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-7 lg:px-9">
-          <div className="flex min-w-0 items-center gap-2 text-[12px]">
+        <header className="dashboard-topbar flex min-h-[66px] flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6 lg:px-7">
+          <div className="flex shrink-0 items-center gap-2 text-[12px]">
             <span className="hidden text-slate-400 sm:inline">PerfumeHub</span>
             <span className="hidden text-slate-300 sm:inline">/</span>
             <span className="truncate font-medium text-slate-700">
               {navItems.find((item) => item.id === view)?.label}
             </span>
-            <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500 md:inline-flex">
+            <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500 xl:inline-flex">
               <span
                 className={`size-1.5 rounded-full ${
                   usandoDemo ? 'bg-amber-500' : 'bg-emerald-500'
@@ -2493,7 +2501,7 @@ export function PerfumeWorkspace() {
             </span>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-500">
               <span className="font-semibold text-emerald-600">$</span>
               <select
@@ -2643,7 +2651,7 @@ export function PerfumeWorkspace() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1440px] px-4 pb-8 pt-6 sm:px-7 sm:pt-8 lg:px-9">
+        <div className="mx-auto max-w-[1600px] px-4 pb-8 pt-5 sm:px-6 lg:px-7">
           {(mensajeSyncFotos || errorCatalogo) && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-[12px] text-violet-800">
               <span>{errorCatalogo ?? mensajeSyncFotos}</span>
@@ -2661,7 +2669,11 @@ export function PerfumeWorkspace() {
             </div>
           )}
 
-          <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div
+            className={`flex flex-wrap items-end justify-between gap-4 ${
+              view === 'catalog' ? 'mb-4' : 'mb-7'
+            }`}
+          >
             <div>
               <p className="mb-1.5 text-[11px] font-medium text-slate-400">
                 {fechaCabecera}
@@ -2682,25 +2694,19 @@ export function PerfumeWorkspace() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (view !== 'catalog') {
+            {view !== 'catalog' && (
+              <button
+                type="button"
+                onClick={() => {
                   setView('catalog')
                   setFiltersOpen(true)
-                } else {
-                  setFiltersOpen((value) => !value)
-                }
-              }}
-              className="primary-action inline-flex items-center gap-2 rounded-lg bg-[#34294d] px-3.5 py-2.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#45365f]"
-            >
-              <Filter size={14} />
-              <span>
-                {view === 'catalog' && filtersOpen
-                  ? 'Ocultar filtros'
-                  : 'Filtrar catálogo'}
-              </span>
-            </button>
+                }}
+                className="primary-action inline-flex items-center gap-2 rounded-lg bg-[#34294d] px-3.5 py-2.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#45365f]"
+              >
+                <Filter size={14} />
+                <span>Filtrar catálogo</span>
+              </button>
+            )}
           </div>
 
           {view === 'overview' && (
@@ -3330,6 +3336,7 @@ export function PerfumeWorkspace() {
                 tamanoPagina={LIMITE_FILAS_RESUMEN}
                 onCambiarTamanoPagina={() => {}}
                 mapIndicesProveedores={mapIndicesProveedores}
+                cantidadesEnCarritoPorProducto={cantidadesEnCarritoPorProducto}
               />
             </>
           )}
@@ -3391,6 +3398,7 @@ export function PerfumeWorkspace() {
                 setPaginaCatalogo(1)
               }}
               mapIndicesProveedores={mapIndicesProveedores}
+              cantidadesEnCarritoPorProducto={cantidadesEnCarritoPorProducto}
             />
           )}
 

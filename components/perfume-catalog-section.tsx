@@ -1,214 +1,68 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import {
-  Activity,
-  ArrowDownUp,
   ArrowRight,
-  Bell,
   BellRing,
-  Boxes,
-  Calculator,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
-  Copy,
   ExternalLink,
   Eye,
   EyeOff,
-  FileSpreadsheet,
   Filter,
   GitMerge,
-  LayoutDashboard,
   Loader2,
-  Moon,
-  Package,
   Pencil,
   Plus,
-  RefreshCw,
   RotateCcw,
   Search,
-  Settings2,
-  ShoppingBag,
-  Sparkles,
   Star,
-  Sun,
   Tags,
-  Trash2,
   TrendingDown,
-  TrendingUp,
-  Upload,
-  Users,
-  Wallet,
   X,
   Zap,
 } from 'lucide-react'
-import {
-  FILTROS_CATALOGO_INICIALES,
-  normalizarTextoBusqueda,
-  useCatalogoPerfumes,
-} from '@/hooks/useCatalogoPerfumes'
-import {
-  aplicarImportacionEnMemoria,
-  generarPrevisualizacionImportacion,
-  PLANTILLA_EJEMPLO_IMPORTACION,
-} from '@/lib/importadorListas'
+import { normalizarTextoBusqueda } from '@/hooks/useCatalogoPerfumes'
 import {
   calcularCostoPerfume,
   calcularRentabilidadUnitaria,
   construirUrlBusquedaMercadoLibre,
-  construirUrlFragrantica,
-  generarVariacionesRespaldo,
 } from '@/lib/rentabilidad'
-import { estaSupabaseConfigurado } from '@/lib/supabase/cliente'
 import {
   MiniaturaPerfumeEditable,
-  ModalEditorImagenPerfume,
   type ModoEditorImagen,
 } from '@/components/image-editor-modal'
-import {
-  actualizarImagenProducto,
-  actualizarPrecioVentaManualProducto,
-  obtenerHistorialPorProducto,
-  obtenerMapaVariacionesPrecios,
-  obtenerTodoElCatalogo,
-  subirImagenProductoOptimizada,
-} from '@/services/catalogoService'
-import {
-  calcularResumenesPorProveedor,
-  useCarritoStore,
-} from '@/store/useCarritoStore'
-import {
-  CONFIG_RENTABILIDAD_INICIAL,
-  COTIZACIONES_DOLAR_INICIALES,
-  guardarScrollNavegacion,
-  leerScrollNavegacion,
-  useConfiguracionStore,
-} from '@/store/useConfiguracionStore'
-import {
-  necesitaReposicion,
-  unidadesFaltantesReposicion,
-  useStockPropioStore,
-} from '@/store/useStockPropioStore'
-import {
-  evaluarAlertasWatchlist,
-  useWatchlistStore,
-} from '@/store/useWatchlistStore'
 import {
   esTipoProductoValido,
   TIPOS_PRODUCTO_OPCIONES,
   type AlertaWatchlistEvaluada,
-  type CategoriaPerfume,
   type ConfiguracionRentabilidad,
-  type CotizacionesDolarDia,
   type CriterioOrdenamiento,
-  type FilaVistaComparador,
   type FiltrosCatalogo,
   type FiltroInteligenciaPrecios,
-  type GeneroPerfume,
   type ItemWatchlist,
-  type MapaVariacionesPrecios,
-  type ModoEscalaMayorista,
   type Moneda,
   type OfertaProveedor,
   type ProductoComparado,
-  type PuntoHistorialGrafico,
   type RegistroStockPropio,
-  type ResultadoSincronizacionImagenes,
-  type ResumenPrevisualizacionImportacion,
-  type TipoCotizacionDolar,
   type TipoProducto,
 } from '@/types/perfumeria'
 import {
-  type VistaActiva,
-  OPCIONES_TAMANO_PAGINA,
-  TAMANO_PAGINA_INICIAL,
-  MAX_TAMANO_PAGINA,
-  LIMITE_FILAS_RESUMEN,
-  obtenerEstiloTipoProducto,
-  GENEROS_FILTRO,
   CATEGORIAS_FILTRO,
   etiquetaCategoriaPerfume,
-  obtenerEstiloCategoriaPerfume,
-  OPCIONES_ORDENAMIENTO,
-  OPCIONES_ESCALA,
-  obtenerColorProveedor,
   formatearMoneda,
-  FILAS_DEMO_RESPALDO,
-  construirHistorialDemo,
-  ImagenFrasco,
-  SectionTitle,
-  GraficoEvolucionPrecios,
+  GENEROS_FILTRO,
+  MAX_TAMANO_PAGINA,
+  obtenerColorProveedor,
+  obtenerEstiloCategoriaPerfume,
+  obtenerEstiloTipoProducto,
+  OPCIONES_ORDENAMIENTO,
+  OPCIONES_TAMANO_PAGINA,
 } from './perfume-shared'
 
-export function CatalogSection({
-  productos,
-  totalSinFiltrar,
-  proveedoresDisponibles,
-  proveedoresActivos,
-  proveedoresDesactivados,
-  onAlternarProveedor,
-  onActivarTodosLosProveedores,
-  marcasDisponibles,
-  tiposDisponibles,
-  filtros,
-  setFiltros,
-  precioMinInput,
-  setPrecioMinInput,
-  precioMaxInput,
-  setPrecioMaxInput,
-  onLimpiarFiltros,
-  alternarMarcaFiltro,
-  alternarMarcaOculta,
-  conteoProductosPorMarca,
-  cantidadFiltrosActivos,
-  monedaVisualizacion,
-  dolarDelDia,
-  configRentabilidad,
-  conteosInteligencia,
-  itemsWatchlist,
-  alertasPorProductoId,
-  registrosStockPropio,
-  onAjustarStock,
-  onSetStockProducto,
-  onSetStockMinimo,
-  onQuitarStock,
-  onAgregarFaltantesAlCarrito,
-  onAbrirModalAlerta,
-  onAbrirCalcularCosto,
-  onAbrirRentabilidad,
-  onAbrirImportador,
-  onGuardarPrecioManual,
-  onCambiarTipoProducto,
-  onEditarMarca,
-  onFusionar,
-  cargandoCatalogo,
-  onAdd,
-  onHistory,
-  onFiltrarMarca,
-  onEditImage,
-  onAll,
-  filtersOpen,
-  setFiltersOpen,
-  maxRows,
-  paginaActual,
-  onCambiarPagina,
-  tamanoPagina,
-  onCambiarTamanoPagina,
-  mapIndicesProveedores,
-}: {
+export interface CatalogSectionProps {
   productos: ProductoComparado[]
   totalSinFiltrar: number
   proveedoresDisponibles: string[]
@@ -284,8 +138,57 @@ export function CatalogSection({
   tamanoPagina: number
   onCambiarTamanoPagina: (tamano: number) => void
   mapIndicesProveedores: Map<string, number>
-}) {
-    const filtroArbitrajeActivo = filtros.filtroInteligencia === 'ARBITRAJE'
+  cantidadesEnCarritoPorProducto?: Map<number, number>
+}
+
+export function CatalogSection({
+  productos,
+  totalSinFiltrar,
+  proveedoresDisponibles,
+  proveedoresActivos,
+  proveedoresDesactivados,
+  onAlternarProveedor,
+  onActivarTodosLosProveedores,
+  marcasDisponibles,
+  filtros,
+  setFiltros,
+  precioMinInput,
+  setPrecioMinInput,
+  precioMaxInput,
+  setPrecioMaxInput,
+  onLimpiarFiltros,
+  alternarMarcaFiltro,
+  alternarMarcaOculta,
+  conteoProductosPorMarca,
+  cantidadFiltrosActivos,
+  monedaVisualizacion,
+  dolarDelDia,
+  configRentabilidad,
+  conteosInteligencia,
+  itemsWatchlist,
+  alertasPorProductoId,
+  onAbrirModalAlerta,
+  onGuardarPrecioManual,
+  onCambiarTipoProducto,
+  cargandoCatalogo,
+  onEditarMarca,
+  onFusionar,
+  onAdd,
+  onHistory,
+  onFiltrarMarca,
+  onEditImage,
+  onAll,
+  filtersOpen,
+  setFiltersOpen,
+  maxRows,
+  paginaActual,
+  onCambiarPagina,
+  tamanoPagina,
+  onCambiarTamanoPagina,
+  mapIndicesProveedores,
+  cantidadesEnCarritoPorProducto,
+}: CatalogSectionProps) {
+  const filtroArbitrajeActivo = filtros.filtroInteligencia === 'ARBITRAJE'
 
   const alternarOportunidadesArbitraje = () => {
     if (filtroArbitrajeActivo) {
@@ -329,38 +232,6 @@ export function CatalogSection({
       normalizarTextoBusqueda(marca).includes(termino),
     )
   }, [marcasDisponibles, busquedaMarcaFiltro])
-
-  const contenedorTablaRef = useRef<HTMLDivElement | null>(null)
-  const scrollHorizontalRestauradoRef = useRef(false)
-  const tablaVisible = !(cargandoCatalogo && productos.length === 0)
-
-  useEffect(() => {
-    if (!tablaVisible || scrollHorizontalRestauradoRef.current) return
-    const contenedor = contenedorTablaRef.current
-    if (!contenedor) return
-
-    const { scrollLeft } = leerScrollNavegacion()
-    let cancelado = false
-    const rafId = window.requestAnimationFrame(() => {
-      if (cancelado) return
-      if (scrollLeft > 0) {
-        contenedor.scrollLeft = scrollLeft
-      }
-      scrollHorizontalRestauradoRef.current = true
-    })
-
-    return () => {
-      cancelado = true
-      window.cancelAnimationFrame(rafId)
-    }
-  }, [tablaVisible])
-
-  const manejarScrollTablaHorizontal = () => {
-    if (!scrollHorizontalRestauradoRef.current) return
-    const contenedor = contenedorTablaRef.current
-    if (!contenedor) return
-    guardarScrollNavegacion({ scrollLeft: contenedor.scrollLeft })
-  }
 
   const [editandoPrecioId, setEditandoPrecioId] = useState<number | null>(null)
   const [precioManualInput, setPrecioManualInput] = useState<string>('')
@@ -415,260 +286,276 @@ export function CatalogSection({
 
   const filasVisibles = productos.slice(indiceInicio, indiceFin)
 
+  const hayFiltrosChipsActivos =
+    Boolean(filtros.genero) ||
+    Boolean(filtros.categoria) ||
+    filtros.soloEnStock ||
+    Boolean(precioMinInput.trim()) ||
+    Boolean(precioMaxInput.trim()) ||
+    filtros.marcasSeleccionadas.length > 0 ||
+    marcasOcultas.length > 0
+
   const pildorasInteligencia: Array<{
     id: FiltroInteligenciaPrecios
     etiqueta: string
     count?: number
     destacado?: boolean
+    esArbitraje?: boolean
   }> = [
     { id: 'TODOS', etiqueta: 'Todos' },
     {
+      id: 'ARBITRAJE',
+      etiqueta: 'Más baratos entre listas',
+      count: conteosInteligencia.arbitraje,
+      esArbitraje: true,
+    },
+    {
       id: 'BAJARON',
-      etiqueta: '↓ Bajaron de precio',
+      etiqueta: '↓ Bajaron',
       count: conteosInteligencia.bajaron,
     },
     {
       id: 'SUBIERON',
-      etiqueta: '↑ Subas recientes',
+      etiqueta: '↑ Subas',
       count: conteosInteligencia.subieron,
     },
     {
-      id: 'ARBITRAJE',
-      etiqueta: '⚡ Más baratos vs otros (≥5%)',
-      count: conteosInteligencia.arbitraje,
-    },
-    {
       id: 'SEGUIMIENTO',
-      etiqueta: '★ En seguimiento',
+      etiqueta: '★ Seguimiento',
       count: conteosInteligencia.seguimiento,
     },
     {
       id: 'ALERTAS_ACTIVAS',
-      etiqueta: '🔔 Alertas cumplidas',
+      etiqueta: '🔔 Alertas',
       count: conteosInteligencia.alertasActivas,
       destacado: conteosInteligencia.alertasActivas > 0,
     },
   ]
 
+  const vistaProveedorActual =
+    filtros.pestanaActiva === 'GLOBAL' ||
+    proveedoresDesactivados.includes(filtros.pestanaActiva)
+      ? 'GLOBAL'
+      : filtros.pestanaActiva
+
   return (
     <section className="dashboard-card overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
-        <div>
-          <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
-            Catálogo y comparador
-          </h2>
-          <p className="mt-1 text-[11px] text-slate-400">
-            {productos.length} de {totalSinFiltrar} productos
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={alternarOportunidadesArbitraje}
-            title="Mostrar perfumes que están significativamente más baratos en un proveedor respecto a los demás en la lista"
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-              filtroArbitrajeActivo
-                ? 'border-amber-400 bg-amber-500 text-white shadow-xs hover:bg-amber-600'
-                : 'border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-400 hover:bg-amber-100'
-            }`}
-          >
-            <Zap
-              size={13}
-              className={
-                filtroArbitrajeActivo
-                  ? 'fill-white text-white'
-                  : 'fill-amber-600 text-amber-600'
-              }
-            />
-            <span>Más baratos entre listas</span>
-            {conteosInteligencia.arbitraje > 0 && (
-              <span
-                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                  filtroArbitrajeActivo
-                    ? 'bg-white/25 text-white'
-                    : 'bg-amber-200 text-amber-950'
-                }`}
-              >
-                {conteosInteligencia.arbitraje}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={onAbrirImportador}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
-          >
-            <FileSpreadsheet size={12} className="text-violet-600" />
-            <span>Importar lista</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onEditarMarca('')}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
-          >
-            <Tags size={12} className="text-violet-600" />
-            <span>Editar marcas</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onAbrirCalcularCosto}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
-          >
-            <Wallet size={12} className="text-violet-600" />
-            <span>Calcular costo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onAbrirRentabilidad}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
-          >
-            <Calculator size={12} className="text-violet-600" />
-            <span>
-              Reventa +{configRentabilidad.margenGeneralPorcentaje}%
+      {/* Cabecera compacta solo en vista previa del Resumen */}
+      {onAll && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+          <div className="flex items-baseline gap-2.5">
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+              Catálogo y comparador
+            </h2>
+            <span className="text-[11px] font-medium text-slate-400">
+              {productos.length} de {totalSinFiltrar} productos
             </span>
+          </div>
+          <button
+            type="button"
+            onClick={onAll}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700 hover:text-violet-900"
+          >
+            Ver catálogo completo <ArrowRight size={13} />
           </button>
-
-          {onAll ? (
-            <button
-              type="button"
-              onClick={onAll}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-violet-700 hover:text-violet-900"
-            >
-              Ver catálogo completo <ArrowRight size={13} />
-            </button>
-          ) : (
-            !maxRows && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-medium text-slate-400">
-                  Por página:
-                </span>
-                <div
-                  role="group"
-                  aria-label="Cantidad de perfumes por página"
-                  className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
-                >
-                  {OPCIONES_TAMANO_PAGINA.map((opcion) => (
-                    <button
-                      key={opcion}
-                      type="button"
-                      onClick={() => onCambiarTamanoPagina(opcion)}
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
-                        tamanoPagina === opcion
-                          ? 'bg-violet-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-white hover:text-slate-900'
-                      }`}
-                    >
-                      {opcion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          )}
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 lg:flex-row lg:flex-wrap lg:items-center">
-        <label className="relative min-w-0 flex-1 lg:min-w-[200px] lg:max-w-[320px]">
+      {/* Fila 1: Buscador, ordenamiento, toggle de filtros y densidad */}
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-slate-100 px-4 py-3 sm:px-5">
+        <label className="relative min-w-[210px] flex-1">
           <Search
             size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
           <input
             value={filtros.busqueda}
             onChange={(event) =>
               setFiltros((prev) => ({ ...prev, busqueda: event.target.value }))
             }
-            placeholder="Buscar perfume, marca, ml o EAN6"
-            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-[11px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            placeholder="Buscar perfume, marca, ml o EAN6..."
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-24 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
           />
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+            {filtros.busqueda && (
+              <button
+                type="button"
+                onClick={() => setFiltros((prev) => ({ ...prev, busqueda: '' }))}
+                aria-label="Limpiar búsqueda"
+                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X size={12} />
+              </button>
+            )}
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-500">
+              {productos.length} / {totalSinFiltrar}
+            </span>
+          </div>
         </label>
 
-        <div className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto">
-          {(['GLOBAL', ...proveedoresActivos] as const).map((nombre) => (
-            <button
-              type="button"
-              key={nombre}
-              onClick={() =>
-                setFiltros((prev) => ({ ...prev, pestanaActiva: nombre }))
-              }
-              className={`shrink-0 rounded-md px-3 py-2 text-[11px] font-medium transition ${
-                filtros.pestanaActiva === nombre
-                  ? 'bg-violet-50 text-violet-800'
-                  : 'text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {nombre === 'GLOBAL'
-                ? hayProveedoresDesactivados
-                  ? `Activos (${proveedoresActivos.length})`
-                  : 'Todos los proveedores'
-                : nombre}
-            </button>
+        <select
+          aria-label="Ordenar catálogo"
+          value={filtros.ordenarPor}
+          onChange={(event) =>
+            setFiltros((prev) => ({
+              ...prev,
+              ordenarPor: event.target.value as CriterioOrdenamiento,
+            }))
+          }
+          className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-600 outline-none"
+        >
+          {OPCIONES_ORDENAMIENTO.map((opcion) => (
+            <option key={opcion.valor} value={opcion.valor}>
+              {opcion.etiqueta}
+            </option>
           ))}
-        </div>
+        </select>
 
-        <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-          <select
-            aria-label="Ordenar catálogo"
-            value={filtros.ordenarPor}
-            onChange={(event) =>
-              setFiltros((prev) => ({
-                ...prev,
-                ordenarPor: event.target.value as CriterioOrdenamiento,
-              }))
-            }
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-600 outline-none"
-          >
-            {OPCIONES_ORDENAMIENTO.map((opcion) => (
-              <option key={opcion.valor} value={opcion.valor}>
-                {opcion.etiqueta}
-              </option>
-            ))}
-          </select>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          aria-expanded={filtersOpen}
+          className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-semibold transition ${
+            filtersOpen
+              ? 'border-violet-200 bg-violet-50 text-violet-800'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Filter size={13} />
+          <span>Filtros</span>
+          {cantidadFiltrosActivos > 0 && (
+            <span className="flex size-4 items-center justify-center rounded-full bg-violet-700 text-[9px] font-bold text-white">
+              {cantidadFiltrosActivos}
+            </span>
+          )}
+          <ChevronDown
+            size={12}
+            className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            aria-expanded={filtersOpen}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition ${
-              filtersOpen
-                ? 'border-violet-200 bg-violet-50 text-violet-800'
-                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <Filter size={13} />
-            <span>Filtros</span>
-            {cantidadFiltrosActivos > 0 && (
-              <span className="flex size-4 items-center justify-center rounded-full bg-violet-700 text-[9px] font-semibold text-white">
-                {cantidadFiltrosActivos}
-              </span>
-            )}
-            <ChevronDown size={12} />
-          </button>
-
-          <span className="hidden h-5 border-l border-slate-200 sm:block" />
-          <span className="hidden text-[10px] text-slate-400 sm:inline">
-            Precios en USD y ARS
-          </span>
-        </div>
+        {!maxRows && !onAll && (
+          <div className="flex items-center gap-1.5">
+            <span className="hidden text-[11px] font-medium text-slate-400 sm:inline">
+              Por pág:
+            </span>
+            <div
+              role="group"
+              aria-label="Cantidad de perfumes por página"
+              className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+            >
+              {OPCIONES_TAMANO_PAGINA.map((opcion) => (
+                <button
+                  key={opcion}
+                  type="button"
+                  onClick={() => onCambiarTamanoPagina(opcion)}
+                  className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                    tamanoPagina === opcion
+                      ? 'bg-violet-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                  }`}
+                >
+                  {opcion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Barra para activar o desactivar proveedores de la comparación */}
-      {proveedoresDisponibles.length > 0 && (
-        <div
-          role="group"
-          aria-label="Activar o desactivar proveedores en la comparación"
-          className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-4 py-2 sm:px-5"
-        >
-          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-            Comparar
-          </span>
+      {/* Fila 2: Vistas rápidas de inteligencia + Control unificado de proveedores */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {pildorasInteligencia.map((pildora) => {
+            const activo = filtros.filtroInteligencia === pildora.id
+            if (pildora.esArbitraje) {
+              return (
+                <button
+                  key={pildora.id}
+                  type="button"
+                  onClick={alternarOportunidadesArbitraje}
+                  title="Mostrar perfumes que están significativamente más baratos en un proveedor respecto a los demás en la lista"
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                    activo
+                      ? 'border-amber-500 bg-amber-500 text-white shadow-xs hover:bg-amber-600'
+                      : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  }`}
+                >
+                  <Zap
+                    size={12}
+                    className={
+                      activo
+                        ? 'fill-white text-white'
+                        : 'fill-amber-500 text-amber-600'
+                    }
+                  />
+                  <span>{pildora.etiqueta}</span>
+                  {pildora.count !== undefined && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                        activo
+                          ? 'bg-white/25 text-white'
+                          : 'bg-amber-200 text-amber-950 dark:bg-amber-500/30 dark:text-amber-100'
+                      }`}
+                    >
+                      {pildora.count}
+                    </span>
+                  )}
+                </button>
+              )
+            }
 
-          <div className="flex flex-wrap items-center gap-1.5">
+            return (
+              <button
+                key={pildora.id}
+                type="button"
+                onClick={() =>
+                  setFiltros((prev) => ({
+                    ...prev,
+                    filtroInteligencia:
+                      prev.filtroInteligencia === pildora.id &&
+                      pildora.id !== 'TODOS'
+                        ? 'TODOS'
+                        : pildora.id,
+                  }))
+                }
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  activo
+                    ? 'border-violet-300 bg-[#34294d] text-white'
+                    : pildora.destacado
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span>{pildora.etiqueta}</span>
+                {pildora.count !== undefined && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold tabular-nums ${
+                      activo
+                        ? 'bg-white/20 text-white'
+                        : pildora.destacado
+                          ? 'bg-emerald-200/70 text-emerald-800'
+                          : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {pildora.count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {proveedoresDisponibles.length > 0 && (
+          <div
+            role="group"
+            aria-label="Activar o desactivar proveedores en la comparación"
+            className="flex flex-wrap items-center gap-1.5"
+          >
+            <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Comparar
+            </span>
+
             {proveedoresDisponibles.map((nombre) => {
               const activo = !proveedoresDesactivados.includes(nombre)
               const esUnicoActivo = activo && proveedoresActivos.length <= 1
@@ -700,8 +587,12 @@ export function CatalogSection({
                   className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                     activo
                       ? 'border-violet-200 bg-violet-50 text-slate-800 hover:bg-slate-50'
-                      : 'border-dashed border-slate-200 bg-slate-50 text-slate-400 hover:text-slate-600'
-                  } ${esUnicoActivo ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                      : 'border-dashed border-slate-200 bg-white text-slate-400 hover:text-slate-600'
+                  } ${
+                    esUnicoActivo
+                      ? 'cursor-not-allowed opacity-70'
+                      : 'cursor-pointer'
+                  }`}
                 >
                   <span
                     className={`size-2 shrink-0 rounded-full ${
@@ -718,219 +609,265 @@ export function CatalogSection({
                 </button>
               )
             })}
-          </div>
 
-          {hayProveedoresDesactivados && (
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-[11px] text-slate-400">
-                {proveedoresActivos.length} de {proveedoresDisponibles.length}{' '}
-                activos
+            {hayProveedoresDesactivados && (
+              <>
+                <span className="text-[10px] font-medium text-slate-400">
+                  {proveedoresActivos.length}/{proveedoresDisponibles.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={onActivarTodosLosProveedores}
+                  className="rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 transition hover:bg-slate-50"
+                >
+                  Activar todos
+                </button>
+              </>
+            )}
+
+            <select
+              aria-label="Vista de proveedor"
+              value={vistaProveedorActual}
+              onChange={(event) =>
+                setFiltros((prev) => ({
+                  ...prev,
+                  pestanaActiva: event.target.value,
+                }))
+              }
+              className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 outline-none"
+            >
+              <option value="GLOBAL">
+                {hayProveedoresDesactivados
+                  ? `Activos (${proveedoresActivos.length})`
+                  : 'Todos los activos'}
+              </option>
+              {proveedoresActivos.map((nombre) => (
+                <option key={nombre} value={nombre}>
+                  Solo {nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Tira de filtros activos (siempre visible cuando hay algún filtro seleccionado) */}
+      {hayFiltrosChipsActivos && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 bg-white px-4 py-2 sm:px-5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Activos:
+          </span>
+
+          {filtros.categoria && (
+            <button
+              type="button"
+              onClick={() =>
+                setFiltros((prev) => ({ ...prev, categoria: null }))
+              }
+              className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:opacity-85"
+            >
+              <span>
+                Categoría:{' '}
+                {filtros.categoria === 'SIN_CATEGORIA'
+                  ? 'Sin categoría'
+                  : etiquetaCategoriaPerfume(filtros.categoria)}
               </span>
-              <button
-                type="button"
-                onClick={onActivarTodosLosProveedores}
-                className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 transition hover:bg-slate-50"
-              >
-                Activar todos
-              </button>
-            </div>
+              <X size={10} />
+            </button>
           )}
+
+          {filtros.genero && (
+            <button
+              type="button"
+              onClick={() => setFiltros((prev) => ({ ...prev, genero: null }))}
+              className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:opacity-85"
+            >
+              <span>Género: {filtros.genero}</span>
+              <X size={10} />
+            </button>
+          )}
+
+          {filtros.soloEnStock && (
+            <button
+              type="button"
+              onClick={() =>
+                setFiltros((prev) => ({ ...prev, soloEnStock: false }))
+              }
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:opacity-85"
+            >
+              <span>Solo con stock</span>
+              <X size={10} />
+            </button>
+          )}
+
+          {(precioMinInput.trim() || precioMaxInput.trim()) && (
+            <button
+              type="button"
+              onClick={() => {
+                setPrecioMinInput('')
+                setPrecioMaxInput('')
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:opacity-85"
+            >
+              <span>
+                Precio ({monedaVisualizacion}):{' '}
+                {precioMinInput.trim() || '0'} –{' '}
+                {precioMaxInput.trim() || '∞'}
+              </span>
+              <X size={10} />
+            </button>
+          )}
+
+          {filtros.marcasSeleccionadas.map((marca) => (
+            <button
+              type="button"
+              key={`sel-${marca}`}
+              onClick={() => alternarMarcaFiltro(marca)}
+              className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:opacity-85"
+            >
+              <span>Marca: {marca}</span>
+              <X size={10} />
+            </button>
+          ))}
+
+          {marcasOcultas.map((marca) => (
+            <button
+              type="button"
+              key={`hide-${marca}`}
+              onClick={() => alternarMarcaOculta(marca)}
+              className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 hover:opacity-85"
+            >
+              <EyeOff size={10} />
+              <span>Oculta: {marca}</span>
+              <X size={10} />
+            </button>
+          ))}
+
+          <button
+            type="button"
+            onClick={onLimpiarFiltros}
+            className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+          >
+            <X size={11} />
+            Limpiar todo
+          </button>
         </div>
       )}
 
-      {/* Píldoras rápidas de Inteligencia de Precios, Watchlist y Reposición */}
-      <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
-        <span className="mr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-          Inteligencia
-        </span>
-        {pildorasInteligencia.map((pildora) => {
-          const activo = filtros.filtroInteligencia === pildora.id
-          return (
-            <button
-              key={pildora.id}
-              type="button"
-              onClick={() => {
-                if (pildora.id === 'ARBITRAJE') {
-                  alternarOportunidadesArbitraje()
-                  return
-                }
-                setFiltros((prev) => ({
-                  ...prev,
-                  filtroInteligencia:
-                    prev.filtroInteligencia === pildora.id && pildora.id !== 'TODOS'
-                      ? 'TODOS'
-                      : pildora.id,
-                }))
-              }}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                activo
-                  ? 'border-violet-300 bg-[#34294d] text-white'
-                  : pildora.destacado
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <span>{pildora.etiqueta}</span>
-              {pildora.count !== undefined && (
-                <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
-                    activo
-                      ? 'bg-white/20 text-white'
-                      : pildora.destacado
-                        ? 'bg-emerald-200/70 text-emerald-800'
-                        : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {pildora.count}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
+      {/* Panel desplegable de Filtros (3 columnas compactas y balanceadas) */}
       {filtersOpen && (
         <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-            <div className="flex flex-col justify-between gap-4">
-              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                <fieldset className="min-w-0">
-                  <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    Género
-                  </legend>
-                  <div className="flex flex-wrap gap-1">
-                    {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
-                      <button
-                        type="button"
-                        key={etiqueta}
-                        onClick={() =>
-                          setFiltros((prev) => ({ ...prev, genero: valor }))
-                        }
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                          filtros.genero === valor
-                            ? 'bg-[#34294d] text-white'
-                            : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                        }`}
-                      >
-                        {etiqueta}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.25fr)]">
+            {/* Columna 1: Clasificación */}
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+              <fieldset className="min-w-0">
+                <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Categoría
+                </legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
+                    <button
+                      type="button"
+                      key={etiqueta}
+                      onClick={() =>
+                        setFiltros((prev) => ({ ...prev, categoria: valor }))
+                      }
+                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                        filtros.categoria === valor
+                          ? 'bg-[#34294d] text-white'
+                          : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
+                      }`}
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
 
+              <fieldset className="min-w-0 border-t border-slate-100 pt-3">
+                <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Género
+                </legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
+                    <button
+                      type="button"
+                      key={etiqueta}
+                      onClick={() =>
+                        setFiltros((prev) => ({ ...prev, genero: valor }))
+                      }
+                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                        filtros.genero === valor
+                          ? 'bg-[#34294d] text-white'
+                          : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
+                      }`}
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+
+            {/* Columna 2: Precio y Stock */}
+            <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+              <div className="flex flex-col gap-3">
                 <fieldset className="min-w-0">
                   <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    Precio (USD)
+                    Precio ({monedaVisualizacion})
                   </legend>
-                  <div className="flex items-center gap-1.5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                     <input
                       aria-label="Precio mínimo"
                       type="number"
                       min="0"
                       value={precioMinInput}
                       onChange={(event) => setPrecioMinInput(event.target.value)}
-                      placeholder="Mín"
-                      className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                      placeholder="Mínimo"
+                      className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-700 outline-none focus:border-violet-400"
                     />
-                    <span className="text-[10px] text-slate-400">-</span>
+                    <span className="text-xs text-slate-400">–</span>
                     <input
                       aria-label="Precio máximo"
                       type="number"
                       min="0"
                       value={precioMaxInput}
                       onChange={(event) => setPrecioMaxInput(event.target.value)}
-                      placeholder="Máx"
-                      className="h-7 w-16 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                      placeholder="Máximo"
+                      className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-700 outline-none focus:border-violet-400"
                     />
                   </div>
-                  <label className="mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={filtros.soloEnStock}
-                      onChange={(event) =>
-                        setFiltros((prev) => ({
-                          ...prev,
-                          soloEnStock: event.target.checked,
-                        }))
-                      }
-                      className="size-3.5 accent-violet-700"
-                    />
-                    Solo con stock
-                  </label>
                 </fieldset>
 
-                <fieldset className="min-w-0 sm:col-span-2">
-                  <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    Categoría
-                  </legend>
-                  <div className="flex flex-wrap gap-1">
-                    {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
-                      <button
-                        type="button"
-                        key={etiqueta}
-                        onClick={() =>
-                          setFiltros((prev) => ({ ...prev, categoria: valor }))
-                        }
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                          filtros.categoria === valor
-                            ? 'bg-[#34294d] text-white'
-                            : 'bg-white text-slate-500 ring-1 ring-slate-200'
-                        }`}
-                      >
-                        {etiqueta}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
+                <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-700">
+                  <span>Solo con stock disponible</span>
+                  <input
+                    type="checkbox"
+                    checked={filtros.soloEnStock}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        soloEnStock: event.target.checked,
+                      }))
+                    }
+                    className="size-3.5 accent-violet-700"
+                  />
+                </label>
               </div>
 
-              {(filtros.marcasSeleccionadas.length > 0 ||
-                marcasOcultas.length > 0) && (
-                <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Marcas filtradas manualmente
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {filtros.marcasSeleccionadas.map((marca) => (
-                      <button
-                        type="button"
-                        key={`sel-${marca}`}
-                        onClick={() => alternarMarcaFiltro(marca)}
-                        className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:bg-violet-100"
-                      >
-                        <span>Mostrar: {marca}</span>
-                        <X size={10} />
-                      </button>
-                    ))}
-                    {marcasOcultas.map((marca) => (
-                      <button
-                        type="button"
-                        key={`hide-${marca}`}
-                        onClick={() => alternarMarcaOculta(marca)}
-                        className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 hover:bg-rose-100"
-                      >
-                        <EyeOff size={10} />
-                        <span>Oculta: {marca}</span>
-                        <X size={10} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
                 <button
                   type="button"
                   onClick={() => onEditarMarca('')}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   <Tags size={12} className="text-violet-600" />
-                  Editar categorías o eliminar marcas
+                  Editar marcas
                 </button>
                 <button
                   type="button"
                   onClick={onLimpiarFiltros}
-                  className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
                 >
                   <X size={12} />
                   Limpiar filtros
@@ -938,8 +875,9 @@ export function CatalogSection({
               </div>
             </div>
 
+            {/* Columna 3: Marcas */}
             {marcasDisponibles.length > 0 && (
-              <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-3.5">
+              <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-3.5 md:col-span-2 xl:col-span-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -974,7 +912,7 @@ export function CatalogSection({
                   )}
                 </div>
 
-                <label className="relative mt-2.5 block">
+                <label className="relative mt-2 block">
                   <Search
                     size={13}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1004,7 +942,7 @@ export function CatalogSection({
                 <div
                   role="list"
                   aria-label="Lista de marcas"
-                  className="mt-2.5 flex h-[240px] flex-col gap-1 overflow-y-auto pr-1"
+                  className="mt-2 flex h-[176px] flex-col gap-1 overflow-y-auto pr-1"
                 >
                   {marcasFiltradasEnPanel.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center text-center text-[11px] text-slate-400">
@@ -1069,7 +1007,7 @@ export function CatalogSection({
                               {marca}
                             </span>
                             {conteo !== undefined && (
-                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-500">
+                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium tabular-nums text-slate-500">
                                 {conteo}
                               </span>
                             )}
@@ -1112,9 +1050,10 @@ export function CatalogSection({
         </div>
       )}
 
+      {/* Banner de arbitraje */}
       {filtroArbitrajeActivo && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs sm:px-5">
-          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2 text-amber-900">
             <Zap size={14} className="shrink-0 fill-amber-500 text-amber-600" />
             <span>
               {proveedoresActivos.length < 2 ? (
@@ -1129,7 +1068,8 @@ export function CatalogSection({
               ) : (
                 <>
                   Mostrando perfumes donde un proveedor está{' '}
-                  <strong>notablemente más barato (≥5%)</strong> respecto a los demás en la lista.
+                  <strong>notablemente más barato (≥5%)</strong> respecto a los
+                  demás en la lista.
                 </>
               )}
             </span>
@@ -1147,7 +1087,7 @@ export function CatalogSection({
             <button
               type="button"
               onClick={alternarOportunidadesArbitraje}
-              className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100 dark:text-amber-200"
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
             >
               <X size={11} />
               Mostrar todos
@@ -1156,6 +1096,7 @@ export function CatalogSection({
         </div>
       )}
 
+      {/* Listado comparador de 4 zonas con CERO scroll horizontal */}
       {cargandoCatalogo && productos.length === 0 ? (
         <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-[12px] text-slate-500">
           <Loader2 size={20} className="animate-spin text-violet-600" />
@@ -1163,129 +1104,153 @@ export function CatalogSection({
         </div>
       ) : (
         <>
-          <div
-            ref={contenedorTablaRef}
-            onScroll={manejarScrollTablaHorizontal}
-            className="overflow-x-auto"
-          >
-            <table className="w-full min-w-[820px] border-collapse text-left">
-              <thead>
-                <tr className="bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="px-4 py-3 sm:px-5">Tipo</th>
-                  <th className="px-4 py-3 sm:px-5">Producto</th>
-                  {displayedSuppliers.map((nombre) => (
-                    <th key={nombre} className="px-3 py-3">
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="size-1.5 rounded-full"
-                          style={{
-                            backgroundColor: obtenerColorProveedor(
-                              nombre,
-                              mapIndicesProveedores.get(nombre) ?? 0,
-                            ),
-                          }}
-                        />
-                        {nombre}
-                      </span>
-                    </th>
-                  ))}
-                  <th className="px-3 py-3">Mejor precio</th>
-                  <th className="px-3 py-3">Costo calculado</th>
-                  {configRentabilidad.mostrarRentabilidadEnCatalogo && (
-                    <th className="px-3 py-3">Reventa sugerida</th>
-                  )}
-                  <th className="px-4 py-3 text-right sm:px-5">Acción</th>
-                </tr>
-              </thead>
+          {filasVisibles.length > 0 && (
+            <div className="hidden border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:grid xl:grid-cols-[minmax(220px,1.3fr)_minmax(265px,1.5fr)_minmax(190px,1fr)_144px] xl:gap-4">
+              <span>Producto</span>
+              <span>Proveedores y precios</span>
+              <span>Costo y reventa</span>
+              <span className="text-right">Carrito</span>
+            </div>
+          )}
 
-              <tbody className="divide-y divide-slate-100">
-                {filasVisibles.map((item) => {
-                  const mejorProveedor = item.proveedorMasBarato
-                  const mejorOferta = mejorProveedor
-                    ? item.ofertas[mejorProveedor]
-                    : undefined
-                  const mejorPrecioMostrado =
-                    monedaVisualizacion === 'USD'
-                      ? item.mejorPrecioUSD
-                      : item.mejorPrecioARS
-                  const estiloTipo = obtenerEstiloTipoProducto(item.tipo)
-                  const enWatchlist = Boolean(itemsWatchlist[item.producto_id])
-                  const alertaEvaluada = alertasPorProductoId.get(
-                    item.producto_id,
-                  )
-                  const registroStock = registrosStockPropio[item.producto_id]
-                  const faltaReponer = necesitaReposicion(registroStock)
-                  const faltantesStock =
-                    unidadesFaltantesReposicion(registroStock)
+          <div className="divide-y divide-slate-100">
+            {filasVisibles.map((item) => {
+              const mejorProveedor = item.proveedorMasBarato
+              const mejorOferta = mejorProveedor
+                ? item.ofertas[mejorProveedor]
+                : undefined
+              const estiloTipo = obtenerEstiloTipoProducto(item.tipo)
+              const enWatchlist = Boolean(itemsWatchlist[item.producto_id])
+              const alertaEvaluada = alertasPorProductoId.get(item.producto_id)
+              const cantidadEnCarrito =
+                cantidadesEnCarritoPorProducto?.get(item.producto_id) ?? 0
 
-                  const costoMlMostrado =
-                    monedaVisualizacion === 'USD'
-                      ? item.mejorCostoPorMlUSD
-                      : item.mejorCostoPorMlARS
-                  const costo100MlMostrado =
-                    monedaVisualizacion === 'USD'
-                      ? item.mejorCostoPor100MlUSD
-                      : item.mejorCostoPor100MlARS
-                  const ahorroArbitrajeMostrado =
-                    monedaVisualizacion === 'USD'
-                      ? item.ahorroArbitrajeUSD
-                      : item.ahorroArbitrajeARS
-
-                  const costoProducto =
-                    item.tieneStockDisponible && item.mejorPrecioARS !== null
-                      ? calcularCostoPerfume({
-                          costoBaseARS: item.mejorPrecioARS,
-                          costoBaseUSD: item.mejorPrecioUSD,
-                          comisionUSD: configRentabilidad.costoEnvioPorPerfumeUSD,
-                          envioAproximadoARS:
-                            configRentabilidad.costoFijoEnvioEmbalajeARS,
-                          dolarDelDia,
-                        })
-                      : null
-
-                  const rentabilidadProducto =
-                    configRentabilidad.mostrarRentabilidadEnCatalogo &&
-                    costoProducto !== null
-                      ? calcularRentabilidadUnitaria({
-                          productoId: item.producto_id,
-                          costoARS: costoProducto.costoBaseARS,
-                          costoUSD: costoProducto.costoBaseUSD,
-                          costoCalculado: costoProducto,
-                          ml: item.ml,
-                          tipo: item.tipo,
-                          dolarDelDia,
-                          config: configRentabilidad,
-                          precioVentaManualARS: item.precioVentaManualARS,
-                        })
-                      : null
-
-                  const urlMercadoLibre = construirUrlBusquedaMercadoLibre({
-                    marca: item.marca,
-                    nombre: item.nombre,
-                    concentracion: item.concentracion,
-                    ml: item.ml,
-                  })
-
+              const ofertasPresentes = displayedSuppliers
+                .map((nombre) => item.ofertas[nombre])
+                .filter((o): o is OfertaProveedor =>
+                  Boolean(o && o.precioBase !== null),
+                )
+                .sort((a, b) => {
+                  if (a.disponible !== b.disponible) {
+                    return a.disponible ? -1 : 1
+                  }
                   return (
-                    <tr
-                      key={item.producto_id}
-                      className="catalog-row group transition hover:bg-slate-50/70"
-                    >
-                      <td className="whitespace-nowrap px-4 py-3 sm:px-5">
-                        <div className="mb-1">
-                          <button
-                            type="button"
-                            onClick={() => onEditarMarca(item.marca)}
-                            title={`Editar categoría de la marca ${item.marca}`}
-                            aria-label={`Editar categoría de la marca ${item.marca}`}
-                            className={`inline-flex h-6 cursor-pointer items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition hover:opacity-85 ${obtenerEstiloCategoriaPerfume(
-                              item.categoria,
-                            )}`}
-                          >
-                            <span>{etiquetaCategoriaPerfume(item.categoria)}</span>
-                            <Pencil size={9} className="opacity-65" />
-                          </button>
-                        </div>
+                    (a.precioBaseEnARS ?? Infinity) -
+                    (b.precioBaseEnARS ?? Infinity)
+                  )
+                })
+
+              const sinListaNombres =
+                vistaProveedorActual === 'GLOBAL'
+                  ? displayedSuppliers.filter(
+                      (nombre) =>
+                        !item.ofertas[nombre] ||
+                        item.ofertas[nombre].precioBase === null,
+                    )
+                  : []
+
+              const costoProducto =
+                item.tieneStockDisponible && item.mejorPrecioARS !== null
+                  ? calcularCostoPerfume({
+                      costoBaseARS: item.mejorPrecioARS,
+                      costoBaseUSD: item.mejorPrecioUSD,
+                      comisionUSD: configRentabilidad.costoEnvioPorPerfumeUSD,
+                      envioAproximadoARS:
+                        configRentabilidad.costoFijoEnvioEmbalajeARS,
+                      dolarDelDia,
+                    })
+                  : null
+
+              const rentabilidadProducto =
+                configRentabilidad.mostrarRentabilidadEnCatalogo &&
+                costoProducto !== null
+                  ? calcularRentabilidadUnitaria({
+                      productoId: item.producto_id,
+                      costoARS: costoProducto.costoBaseARS,
+                      costoUSD: costoProducto.costoBaseUSD,
+                      costoCalculado: costoProducto,
+                      ml: item.ml,
+                      tipo: item.tipo,
+                      dolarDelDia,
+                      config: configRentabilidad,
+                      precioVentaManualARS: item.precioVentaManualARS,
+                    })
+                  : null
+
+              const urlMercadoLibre = construirUrlBusquedaMercadoLibre({
+                marca: item.marca,
+                nombre: item.nombre,
+                concentracion: item.concentracion,
+                ml: item.ml,
+              })
+
+              return (
+                <article
+                  key={item.producto_id}
+                  className="catalog-row grid grid-cols-1 gap-3 px-4 py-3.5 transition hover:bg-slate-50/70 sm:px-5 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.3fr)_minmax(265px,1.5fr)_minmax(190px,1fr)_144px] xl:items-center xl:gap-4"
+                >
+                  {/* Zona 1: Producto + clasificación inline */}
+                  <div className="flex min-w-0 items-start gap-3">
+                    <MiniaturaPerfumeEditable
+                      producto={item}
+                      onAbrirEditor={onEditImage}
+                      tamanoClase="size-16 shrink-0"
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onHistory(item)}
+                          title={`Abrir ficha, precios e historial de ${item.marca} ${item.nombre}`}
+                          className="line-clamp-2 text-left text-[13px] font-bold leading-snug text-slate-900 transition hover:text-violet-700 hover:underline"
+                        >
+                          {item.nombre}
+                        </button>
+                        {alertaEvaluada?.cumplePrecioObjetivo && (
+                          <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+                            Objetivo
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                        <button
+                          type="button"
+                          onClick={() => onFiltrarMarca(item.marca)}
+                          title={`Buscar todos los perfumes de ${item.marca} en la tabla`}
+                          className="font-semibold text-slate-600 transition hover:text-violet-700 hover:underline"
+                        >
+                          {item.marca}
+                        </button>
+                        <span>
+                          {' '}
+                          · {item.concentracion ?? item.tipo}
+                          {item.ml !== null ? ` · ${item.ml} ml` : ''}
+                          {item.genero ? ` · ${item.genero}` : ''}
+                        </span>
+                        <span
+                          className="ml-1.5 rounded bg-slate-100 px-1 py-0.2 font-mono text-[10px] text-slate-500"
+                          title="ID del perfume (para fusionar duplicados)"
+                        >
+                          #{item.producto_id}
+                        </span>
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onEditarMarca(item.marca)}
+                          title={`Editar categoría de la marca ${item.marca}`}
+                          aria-label={`Editar categoría de la marca ${item.marca}`}
+                          className={`inline-flex h-5 cursor-pointer items-center gap-1 rounded border px-1.5 text-[10px] font-semibold transition hover:opacity-85 ${obtenerEstiloCategoriaPerfume(
+                            item.categoria,
+                          )}`}
+                        >
+                          <span>{etiquetaCategoriaPerfume(item.categoria)}</span>
+                          <Pencil size={9} className="opacity-70" />
+                        </button>
+
                         <div className="relative inline-flex items-center">
                           <select
                             aria-label={`Cambiar tipo o subcategoría de ${item.marca} ${item.nombre}`}
@@ -1297,7 +1262,7 @@ export function CatalogSection({
                                 void onCambiarTipoProducto(item, val)
                               }
                             }}
-                            className={`h-6 cursor-pointer appearance-none rounded-md border pl-2 pr-5 text-[11px] font-medium outline-none transition hover:opacity-85 ${estiloTipo.badgeClass}`}
+                            className={`h-5 cursor-pointer appearance-none rounded border pl-1.5 pr-4 text-[10px] font-semibold outline-none transition hover:opacity-85 ${estiloTipo.badgeClass}`}
                           >
                             {TIPOS_PRODUCTO_OPCIONES.map((op) => (
                               <option key={op.valor} value={op.valor}>
@@ -1307,66 +1272,26 @@ export function CatalogSection({
                           </select>
                           <ChevronDown
                             size={10}
-                            className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-65"
+                            className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 opacity-70"
                           />
                         </div>
-                      </td>
+                      </div>
+                    </div>
+                  </div>
 
-                      <td className={`px-4 py-1.5 sm:px-5 ${estiloTipo.cellClass}`}>
-                        <div className="flex min-w-[245px] items-center gap-3">
-                          <MiniaturaPerfumeEditable
-                            producto={item}
-                            onAbrirEditor={onEditImage}
-                            tamanoClase="size-[72px]"
-                          />
-
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => onHistory(item)}
-                                title={`Abrir ficha, precios e historial de ${item.marca} ${item.nombre}`}
-                                className="truncate text-left text-[13px] font-bold text-slate-900 transition hover:text-violet-700 hover:underline"
-                              >
-                                {item.nombre}
-                              </button>
-                              {alertaEvaluada?.cumplePrecioObjetivo && (
-                                <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                  Objetivo
-                                </span>
-                              )}
-                            </span>
-                            <span className="mt-0.5 block truncate text-[11px] text-slate-500">
-                              <button
-                                type="button"
-                                onClick={() => onFiltrarMarca(item.marca)}
-                                title={`Buscar todos los perfumes de ${item.marca} en la tabla`}
-                                className="font-medium text-slate-500 transition hover:text-violet-700 hover:underline"
-                              >
-                                {item.marca}
-                              </button>{' '}
-                              · {item.concentracion ?? item.tipo}
-                              {item.ml !== null ? ` · ${item.ml} ml` : ''}
-                              {item.genero ? ` · ${item.genero}` : ''}
-                              <span
-                                className="ml-1 rounded bg-slate-100 px-1 font-mono text-[10px] text-slate-500"
-                                title="ID del perfume (para fusionar duplicados)"
-                              >
-                                #{item.producto_id}
-                              </span>
-                            </span>
-                          </span>
-                        </div>
-                      </td>
-
-                      {displayedSuppliers.map((nombre) => {
-                        const oferta = item.ofertas[nombre]
-                        const variacion = oferta?.variacionPorcentaje ?? null
+                  {/* Zona 2: Proveedores y precios */}
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    {ofertasPresentes.length > 0 ? (
+                      ofertasPresentes.map((oferta) => {
+                        const esGanadora =
+                          oferta.disponible &&
+                          mejorProveedor === oferta.proveedor
+                        const variacion = oferta.variacionPorcentaje
                         const mostrarVariacion =
                           variacion !== null && Math.abs(variacion) >= 0.1
                         const tituloVariacion =
-                          oferta?.precioAnterior !== null &&
-                          oferta?.precioAnterior !== undefined
+                          oferta.precioAnterior !== null &&
+                          oferta.precioAnterior !== undefined
                             ? `Precio anterior: ${formatearMoneda(
                                 oferta.precioAnterior,
                                 oferta.moneda,
@@ -1377,204 +1302,219 @@ export function CatalogSection({
                               }`
                             : undefined
 
+                        const mostrarFilaExtra =
+                          (esGanadora &&
+                            ((item.brechaArbitrajePorcentaje !== null &&
+                              item.brechaArbitrajePorcentaje >= 2 &&
+                              item.proveedorSegundoMasBarato) ||
+                              item.mejorCostoPor100MlUSD !== null)) ||
+                          oferta.precio12 !== null ||
+                          oferta.precio24 !== null
+
                         return (
-                          <td key={nombre} className="px-3 py-3">
-                            {oferta && oferta.precioBase !== null ? (
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span
-                                      className={`text-[13px] font-bold tracking-tight ${
-                                        oferta.disponible
-                                          ? 'text-slate-900'
-                                          : 'text-slate-400 line-through text-[12px]'
-                                      }`}
-                                    >
-                                      {oferta.precioBaseEnUSD !== null
-                                        ? formatearMoneda(
-                                            oferta.precioBaseEnUSD,
-                                            'USD',
-                                          )
-                                        : '—'}
-                                    </span>
+                          <div
+                            key={oferta.proveedor}
+                            className={`rounded-lg border px-2.5 py-1.5 transition ${
+                              esGanadora
+                                ? 'border-emerald-200 bg-emerald-50'
+                                : oferta.disponible
+                                  ? 'border-slate-200 bg-white'
+                                  : 'border-slate-100 bg-slate-50/70 opacity-70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                <span
+                                  className="size-2 shrink-0 rounded-full"
+                                  style={{
+                                    backgroundColor: obtenerColorProveedor(
+                                      oferta.proveedor,
+                                      mapIndicesProveedores.get(
+                                        oferta.proveedor,
+                                      ) ?? 0,
+                                    ),
+                                  }}
+                                />
+                                <span className="truncate text-[11px] font-semibold text-slate-800">
+                                  {oferta.proveedor}
+                                </span>
+                                {esGanadora && (
+                                  <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.2 text-[9px] font-bold uppercase text-white">
+                                    Mejor
+                                  </span>
+                                )}
+                                {!oferta.disponible && (
+                                  <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.2 text-[9px] font-semibold text-rose-600">
+                                    {oferta.estadoStock || 'Sin stock'}
+                                  </span>
+                                )}
+                                {mostrarVariacion && variacion !== null && (
+                                  <span
+                                    title={tituloVariacion}
+                                    className={`shrink-0 rounded px-1 py-0.2 text-[9px] font-semibold ${
+                                      variacion < 0
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : 'bg-rose-50 text-rose-600'
+                                    }`}
+                                  >
+                                    {variacion < 0
+                                      ? `↓ ${Math.abs(variacion).toFixed(1)}%`
+                                      : `↑ +${variacion.toFixed(1)}%`}
+                                  </span>
+                                )}
+                              </div>
 
-                                    {mostrarVariacion && variacion !== null && (
-                                      <span
-                                        title={tituloVariacion}
-                                        className={`inline-flex items-center rounded px-1.5 py-0.2 text-[10px] font-semibold ${
-                                          variacion < 0
-                                            ? 'bg-emerald-50 text-emerald-700'
-                                            : 'bg-rose-50 text-rose-600'
-                                        }`}
-                                      >
-                                        {variacion < 0
-                                          ? `↓ ${Math.abs(variacion).toFixed(1)}%`
-                                          : `↑ +${variacion.toFixed(1)}%`}
-                                      </span>
-                                    )}
-                                  </div>
-
+                              <div className="flex shrink-0 items-center gap-2">
+                                <div className="text-right leading-tight">
+                                  <span
+                                    className={`block whitespace-nowrap text-[12px] font-bold tabular-nums tracking-tight ${
+                                      oferta.disponible
+                                        ? 'text-slate-900'
+                                        : 'text-slate-400 line-through'
+                                    }`}
+                                  >
+                                    {oferta.precioBaseEnUSD !== null
+                                      ? formatearMoneda(
+                                          oferta.precioBaseEnUSD,
+                                          'USD',
+                                        )
+                                      : '—'}
+                                  </span>
                                   {oferta.disponible &&
                                     oferta.precioBaseEnARS !== null && (
-                                      <span className="block text-[13px] font-bold tracking-tight text-slate-900">
+                                      <span className="block whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-600">
                                         {formatearMoneda(
                                           oferta.precioBaseEnARS,
                                           'ARS',
                                         )}
                                       </span>
                                     )}
-
-                                  {(oferta.precio12 !== null ||
-                                    oferta.precio24 !== null) && (
-                                    <span className="block text-[10px] text-slate-500">
-                                      {oferta.precio12 !== null
-                                        ? `12+ ${formatearMoneda(
-                                            oferta.precio12EnUSD ?? oferta.precio12,
-                                            'USD',
-                                          )} (${formatearMoneda(
-                                            oferta.precio12EnARS ?? (oferta.precio12 * dolarDelDia),
-                                            'ARS',
-                                          )})`
-                                        : ''}
-                                      {oferta.precio12 !== null &&
-                                      oferta.precio24 !== null
-                                        ? ' · '
-                                        : ''}
-                                      {oferta.precio24 !== null
-                                        ? `24+ ${formatearMoneda(
-                                            oferta.precio24EnUSD ?? oferta.precio24,
-                                            'USD',
-                                          )} (${formatearMoneda(
-                                            oferta.precio24EnARS ?? (oferta.precio24 * dolarDelDia),
-                                            'ARS',
-                                          )})`
-                                        : ''}
-                                    </span>
-                                  )}
-
-                                  {!oferta.disponible && (
-                                    <span className="block text-[10px] font-medium text-rose-500">
-                                      {oferta.estadoStock || 'Sin stock'}
-                                    </span>
-                                  )}
                                 </div>
 
                                 {oferta.disponible && (
                                   <button
                                     type="button"
                                     onClick={() => onAdd(item, oferta)}
-                                    title={`Agregar oferta de ${nombre} al carrito`}
-                                    aria-label={`Agregar ${item.nombre} de ${nombre} al carrito`}
-                                    className="row-action flex size-6 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-violet-300 hover:text-violet-700"
+                                    title={`Agregar oferta de ${oferta.proveedor} al carrito`}
+                                    aria-label={`Agregar ${item.nombre} de ${oferta.proveedor} al carrito`}
+                                    className="row-action flex size-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700"
                                   >
                                     <Plus size={12} />
                                   </button>
                                 )}
                               </div>
-                            ) : (
-                              <span className="text-[11px] text-slate-300">
-                                —
-                              </span>
-                            )}
-                          </td>
-                        )
-                      })}
+                            </div>
 
-                      <td className="px-3 py-3">
-                        {item.tieneStockDisponible &&
-                        mejorOferta &&
-                        item.mejorPrecioUSD !== null ? (
-                          <div className="min-w-[130px]">
-                            <span className="block text-[13px] font-bold tracking-tight text-slate-900">
-                              {formatearMoneda(item.mejorPrecioUSD, 'USD')}
-                            </span>
-                            {item.mejorPrecioARS !== null && (
-                              <span className="block text-[13px] font-bold tracking-tight text-slate-900">
-                                {formatearMoneda(item.mejorPrecioARS, 'ARS')}
-                              </span>
-                            )}
-                            <span className="block text-[11px] font-semibold text-emerald-700">
-                              Mejor oferta · {mejorProveedor}
-                            </span>
+                            {mostrarFilaExtra && (
+                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/70 pt-1 text-[10px]">
+                                {esGanadora &&
+                                  item.brechaArbitrajePorcentaje !== null &&
+                                  item.brechaArbitrajePorcentaje >= 2 &&
+                                  item.proveedorSegundoMasBarato && (
+                                    <span
+                                      title={
+                                        item.ahorroArbitrajeUSD !== null &&
+                                        item.ahorroArbitrajeARS !== null
+                                          ? `Ahorro unitario: ${formatearMoneda(
+                                              item.ahorroArbitrajeUSD,
+                                              'USD',
+                                            )} / ${formatearMoneda(
+                                              item.ahorroArbitrajeARS,
+                                              'ARS',
+                                            )}`
+                                          : undefined
+                                      }
+                                      className="inline-flex items-center gap-0.5 rounded bg-violet-100 px-1.5 py-0.2 font-semibold text-violet-700"
+                                    >
+                                      <Zap size={9} />
+                                      Ahorrás{' '}
+                                      {item.brechaArbitrajePorcentaje.toFixed(1)}
+                                      % vs {item.proveedorSegundoMasBarato}
+                                    </span>
+                                  )}
 
-                            {item.brechaArbitrajePorcentaje !== null &&
-                              item.brechaArbitrajePorcentaje >= 2 &&
-                              item.proveedorSegundoMasBarato && (
-                                <span
-                                  title={
-                                    item.ahorroArbitrajeUSD !== null &&
-                                    item.ahorroArbitrajeARS !== null
-                                      ? `Ahorro unitario: ${formatearMoneda(
-                                          item.ahorroArbitrajeUSD,
+                                {(oferta.precio12 !== null ||
+                                  oferta.precio24 !== null) && (
+                                  <span className="whitespace-nowrap text-slate-500 tabular-nums">
+                                    {oferta.precio12 !== null
+                                      ? `12+: ${formatearMoneda(
+                                          oferta.precio12EnUSD ?? oferta.precio12,
                                           'USD',
-                                        )} / ${formatearMoneda(
-                                          item.ahorroArbitrajeARS,
-                                          'ARS',
                                         )}`
-                                      : undefined
-                                  }
-                                  className="mt-0.5 inline-flex items-center gap-1 rounded bg-violet-50 px-1.5 py-0.2 text-[10px] font-semibold text-violet-700"
-                                >
-                                  <Zap size={9} />
-                                  Ahorrás{' '}
-                                  {item.brechaArbitrajePorcentaje.toFixed(1)}% vs{' '}
-                                  {item.proveedorSegundoMasBarato}
-                                </span>
-                              )}
-
-                            {item.mejorCostoPor100MlUSD !== null && (
-                              <span className="block text-[10px] text-slate-400">
-                                {formatearMoneda(
-                                  item.mejorCostoPor100MlUSD,
-                                  'USD',
+                                      : ''}
+                                    {oferta.precio12 !== null &&
+                                    oferta.precio24 !== null
+                                      ? ' · '
+                                      : ''}
+                                    {oferta.precio24 !== null
+                                      ? `24+: ${formatearMoneda(
+                                          oferta.precio24EnUSD ?? oferta.precio24,
+                                          'USD',
+                                        )}`
+                                      : ''}
+                                  </span>
                                 )}
-                                {item.mejorCostoPor100MlARS !== null &&
-                                  ` (${formatearMoneda(
-                                    item.mejorCostoPor100MlARS,
-                                    'ARS',
-                                  )})`}
-                                /100ml
-                              </span>
+
+                                {esGanadora &&
+                                  item.mejorCostoPor100MlUSD !== null && (
+                                    <span className="ml-auto whitespace-nowrap text-slate-400 tabular-nums">
+                                      {formatearMoneda(
+                                        item.mejorCostoPor100MlUSD,
+                                        'USD',
+                                      )}
+                                      /100ml
+                                    </span>
+                                  )}
+                              </div>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400">
-                            Sin stock
-                          </span>
-                        )}
-                      </td>
+                        )
+                      })
+                    ) : (
+                      <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-400">
+                        Sin stock ni precios disponibles
+                      </div>
+                    )}
 
-                      <td className="px-3 py-3">
-                        {costoProducto ? (
-                          <div className="min-w-[130px]">
-                            <span className="block text-[13px] font-bold tracking-tight text-slate-900">
-                              {formatearMoneda(costoProducto.costoTotalUSD, 'USD')}
-                            </span>
-                            <span className="block text-[13px] font-bold tracking-tight text-slate-900">
-                              {formatearMoneda(costoProducto.costoTotalARS, 'ARS')}
+                    {sinListaNombres.length > 0 && ofertasPresentes.length > 0 && (
+                      <p className="truncate px-1 text-[10px] text-slate-400">
+                        Sin lista: {sinListaNombres.join(', ')}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Zona 3: Costo final y reventa sugerida */}
+                  <div className="min-w-0">
+                    {costoProducto ? (
+                      <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                              Costo final
                             </span>
                             {(costoProducto.comisionUSD > 0 ||
                               costoProducto.envioAproximadoARS > 0) && (
-                              <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
-                                +US$ {costoProducto.comisionUSD} com. · +${' '}
+                              <span className="mt-0.5 block text-[10px] text-slate-400">
+                                +US$ {costoProducto.comisionUSD} · +${' '}
                                 {Math.round(
                                   costoProducto.envioAproximadoARS,
-                                ).toLocaleString('es-AR')}{' '}
-                                envío
+                                ).toLocaleString('es-AR')}
                               </span>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-300">
-                            —
-                          </span>
-                        )}
-                      </td>
+                          <div className="text-right leading-tight">
+                            <span className="block whitespace-nowrap text-[12px] font-bold tabular-nums text-slate-900">
+                              {formatearMoneda(costoProducto.costoTotalUSD, 'USD')}
+                            </span>
+                            <span className="block whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-600">
+                              {formatearMoneda(costoProducto.costoTotalARS, 'ARS')}
+                            </span>
+                          </div>
+                        </div>
 
-                      {configRentabilidad.mostrarRentabilidadEnCatalogo && (
-                        <td className="px-3 py-3">
-                          {rentabilidadProducto ? (
-                            <div className="min-w-[155px]">
+                        {configRentabilidad.mostrarRentabilidadEnCatalogo &&
+                          rentabilidadProducto && (
+                            <div className="mt-2 border-t border-slate-200/70 pt-2">
                               {editandoPrecioId === item.producto_id ? (
                                 <div className="flex items-center gap-1">
                                   <span className="text-[10px] font-semibold text-slate-400">
@@ -1596,7 +1536,7 @@ export function CatalogSection({
                                       }
                                     }}
                                     placeholder="ARS"
-                                    className="h-7 w-20 rounded border border-violet-300 bg-white px-2 text-xs font-semibold text-slate-800 outline-none"
+                                    className="h-7 min-w-0 flex-1 rounded border border-violet-300 bg-white px-2 text-xs font-semibold text-slate-800 outline-none"
                                     autoFocus
                                   />
                                   <button
@@ -1605,7 +1545,7 @@ export function CatalogSection({
                                       void confirmarPrecioManualFila(item)
                                     }
                                     title="Guardar"
-                                    className="flex size-6 items-center justify-center rounded bg-violet-600 text-white hover:bg-violet-700"
+                                    className="flex size-6 shrink-0 items-center justify-center rounded bg-violet-600 text-white hover:bg-violet-700"
                                   >
                                     <Check size={11} />
                                   </button>
@@ -1613,195 +1553,196 @@ export function CatalogSection({
                                     type="button"
                                     onClick={() => setEditandoPrecioId(null)}
                                     title="Cancelar"
-                                    className="flex size-6 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50"
+                                    className="flex size-6 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50"
                                   >
                                     <X size={11} />
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex flex-col items-start gap-0.5">
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    <span className="text-[13px] font-bold tracking-tight text-slate-900">
-                                      PVP: {formatearMoneda(
-                                        rentabilidadProducto.precioVentaSugeridoUSD,
-                                        'USD',
-                                      )}
-                                    </span>
-                                    {rentabilidadProducto.esPrecioManual && (
-                                      <span className="rounded bg-violet-100 px-1 py-0.2 text-[8px] font-bold uppercase text-violet-700">
-                                        Manual
+                                <>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                        PVP
                                       </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        iniciarEdicionPrecioManual(
-                                          item,
-                                          rentabilidadProducto.precioVentaSugeridoARS,
-                                        )
-                                      }
-                                      title="Fijar precio de venta manual (ARS)"
-                                      aria-label={`Fijar precio manual de ${item.nombre}`}
-                                      className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-violet-700"
-                                    >
-                                      <Pencil size={10} />
-                                    </button>
-                                    {rentabilidadProducto.esPrecioManual && (
+                                      {rentabilidadProducto.esPrecioManual && (
+                                        <span className="rounded bg-violet-100 px-1 py-0.2 text-[8px] font-bold uppercase text-violet-700">
+                                          Manual
+                                        </span>
+                                      )}
                                       <button
                                         type="button"
-                                        disabled={
-                                          guardandoPrecioId === item.producto_id
-                                        }
                                         onClick={() =>
-                                          void limpiarPrecioManualFila(item)
+                                          iniciarEdicionPrecioManual(
+                                            item,
+                                            rentabilidadProducto.precioVentaSugeridoARS,
+                                          )
                                         }
-                                        title="Volver al precio automático por fórmula"
-                                        aria-label={`Restaurar precio automático de ${item.nombre}`}
-                                        className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                                        title="Fijar precio de venta manual (ARS)"
+                                        aria-label={`Fijar precio manual de ${item.nombre}`}
+                                        className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-violet-700"
                                       >
-                                        <RotateCcw size={10} />
+                                        <Pencil size={10} />
                                       </button>
-                                    )}
+                                      {rentabilidadProducto.esPrecioManual && (
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            guardandoPrecioId ===
+                                            item.producto_id
+                                          }
+                                          onClick={() =>
+                                            void limpiarPrecioManualFila(item)
+                                          }
+                                          title="Volver al precio automático por fórmula"
+                                          aria-label={`Restaurar precio automático de ${item.nombre}`}
+                                          className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                                        >
+                                          <RotateCcw size={10} />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="text-right leading-tight">
+                                      <span className="block whitespace-nowrap text-[12px] font-bold tabular-nums text-slate-900">
+                                        {formatearMoneda(
+                                          rentabilidadProducto.precioVentaSugeridoUSD,
+                                          'USD',
+                                        )}
+                                      </span>
+                                      <span className="block whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-600">
+                                        {formatearMoneda(
+                                          rentabilidadProducto.precioVentaSugeridoARS,
+                                          'ARS',
+                                        )}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <span className="block text-[13px] font-bold tracking-tight text-slate-900">
+
+                                  <p
+                                    className={`mt-1 whitespace-nowrap text-[10px] font-semibold tabular-nums ${
+                                      rentabilidadProducto.gananciaNetaARS >= 0
+                                        ? 'text-emerald-700'
+                                        : 'text-rose-600'
+                                    }`}
+                                  >
+                                    {rentabilidadProducto.gananciaNetaARS >= 0
+                                      ? '+'
+                                      : ''}
                                     {formatearMoneda(
-                                      rentabilidadProducto.precioVentaSugeridoARS,
-                                      'ARS',
-                                    )}
-                                  </span>
-                                </div>
+                                      rentabilidadProducto.gananciaNetaUSD,
+                                      'USD',
+                                    )}{' '}
+                                    · {rentabilidadProducto.roiPorcentaje.toFixed(0)}
+                                    % ROI
+                                  </p>
+                                </>
                               )}
-
-                              <span
-                                className={`block text-[11px] font-semibold ${
-                                  rentabilidadProducto.gananciaNetaARS >= 0
-                                    ? 'text-emerald-700'
-                                    : 'text-rose-600'
-                                }`}
-                              >
-                                {rentabilidadProducto.gananciaNetaARS >= 0
-                                  ? '+'
-                                  : ''}
-                                {formatearMoneda(
-                                  rentabilidadProducto.gananciaNetaUSD,
-                                  'USD',
-                                )}{' '}
-                                ({formatearMoneda(
-                                  rentabilidadProducto.gananciaNetaARS,
-                                  'ARS',
-                                )}) · {rentabilidadProducto.roiPorcentaje.toFixed(0)}% ROI
-                              </span>
-
-                              <a
-                                href={urlMercadoLibre}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                                title={`Buscar ${item.marca} ${item.nombre} en MercadoLibre Argentina`}
-                              >
-                                <ExternalLink size={9} />
-                                Buscar en ML
-                              </a>
-                            </div>
-                          ) : (
-                            <div className="min-w-[120px]">
-                              <span className="block text-[11px] text-slate-300">
-                                —
-                              </span>
-                              <a
-                                href={urlMercadoLibre}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                              >
-                                <ExternalLink size={9} />
-                                Buscar en ML
-                              </a>
                             </div>
                           )}
-                        </td>
-                      )}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-400">
+                        Sin stock para calcular costo
+                      </div>
+                    )}
+                  </div>
 
-                      <td className="px-4 py-3 text-right sm:px-5">
-                        <div className="inline-flex items-center gap-1.5">
-                          {!configRentabilidad.mostrarRentabilidadEnCatalogo && (
-                            <a
-                              href={urlMercadoLibre}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={`Buscar ${item.nombre} en MercadoLibre`}
-                              title="Buscar en MercadoLibre"
-                              className="row-action flex size-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
-                            >
-                              <ExternalLink size={13} />
-                            </a>
+                  {/* Zona 4: Carrito y acciones rápidas (siempre visible) */}
+                  <div className="flex flex-col gap-1.5">
+                    {mejorOferta && mejorOferta.disponible ? (
+                      <button
+                        type="button"
+                        onClick={() => onAdd(item, mejorOferta)}
+                        aria-label={`Agregar mejor oferta de ${item.nombre} (${mejorOferta.proveedor}) al carrito`}
+                        title={`Agregar mejor oferta (${mejorOferta.proveedor}) al carrito`}
+                        className="primary-action flex w-full flex-col items-center justify-center rounded-lg bg-[#34294d] px-3 py-2 text-white shadow-xs transition hover:bg-[#45365f]"
+                      >
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                          <Plus size={14} />
+                          <span>Agregar</span>
+                          {cantidadEnCarrito > 0 && (
+                            <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-bold tabular-nums">
+                              ×{cantidadEnCarrito}
+                            </span>
                           )}
+                        </span>
+                        <span className="mt-0.5 text-[10px] font-medium text-violet-200">
+                          en {mejorOferta.proveedor}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-400">
+                        Sin stock
+                      </div>
+                    )}
 
-                          <button
-                            type="button"
-                            onClick={() => onAbrirModalAlerta(item)}
-                            aria-label={`Configurar seguimiento y alerta para ${item.nombre}`}
-                            title={
-                              alertaEvaluada?.tieneAlertaActiva
-                                ? 'Alerta activa · Click para editar'
-                                : enWatchlist
-                                  ? 'En seguimiento · Click para editar alerta'
-                                  : 'Seguir perfume y configurar alerta'
-                            }
-                            className={`row-action flex size-8 items-center justify-center rounded-lg border transition ${
-                              alertaEvaluada?.tieneAlertaActiva
-                                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                                : enWatchlist
-                                  ? 'border-amber-300 bg-amber-50 text-amber-700'
-                                  : 'border-slate-200 text-slate-500 hover:border-violet-200 hover:text-violet-700'
-                            }`}
-                          >
-                            {alertaEvaluada?.tieneAlertaActiva ? (
-                              <BellRing size={14} />
-                            ) : (
-                              <Star
-                                size={14}
-                                className={enWatchlist ? 'fill-current' : ''}
-                              />
-                            )}
-                          </button>
+                    <div className="grid grid-cols-4 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onAbrirModalAlerta(item)}
+                        aria-label={`Configurar seguimiento y alerta para ${item.nombre}`}
+                        title={
+                          alertaEvaluada?.tieneAlertaActiva
+                            ? 'Alerta activa · Click para editar'
+                            : enWatchlist
+                              ? 'En seguimiento · Click para editar alerta'
+                              : 'Seguir perfume y configurar alerta'
+                        }
+                        className={`row-action flex h-7 items-center justify-center rounded-md border transition ${
+                          alertaEvaluada?.tieneAlertaActiva
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                            : enWatchlist
+                              ? 'border-amber-300 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-700'
+                        }`}
+                      >
+                        {alertaEvaluada?.tieneAlertaActiva ? (
+                          <BellRing size={13} />
+                        ) : (
+                          <Star
+                            size={13}
+                            className={enWatchlist ? 'fill-current' : ''}
+                          />
+                        )}
+                      </button>
 
-                          <button
-                            type="button"
-                            onClick={() => onHistory(item)}
-                            aria-label={`Ver historial de ${item.nombre}`}
-                            title="Ver historial de precios"
-                            className="row-action flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
-                          >
-                            <TrendingDown size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onFusionar(item)}
-                            aria-label={`Fusionar ${item.nombre} con otro perfume`}
-                            title="Fusionar con otro perfume (mismo perfume con otro nombre)"
-                            className="row-action flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
-                          >
-                            <GitMerge size={14} />
-                          </button>
-                          {mejorOferta && mejorOferta.disponible && (
-                            <button
-                              type="button"
-                              onClick={() => onAdd(item, mejorOferta)}
-                              aria-label={`Agregar mejor oferta de ${item.nombre} (${mejorOferta.proveedor}) al carrito`}
-                              title={`Agregar mejor oferta (${mejorOferta.proveedor})`}
-                              className="primary-action row-action flex size-8 items-center justify-center rounded-lg bg-[#34294d] text-white transition hover:bg-[#45365f]"
-                            >
-                              <Plus size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      <button
+                        type="button"
+                        onClick={() => onHistory(item)}
+                        aria-label={`Ver historial de ${item.nombre}`}
+                        title="Ver historial de precios"
+                        className="row-action flex h-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
+                      >
+                        <TrendingDown size={13} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onFusionar(item)}
+                        aria-label={`Fusionar ${item.nombre} con otro perfume`}
+                        title="Fusionar con otro perfume (mismo perfume con otro nombre)"
+                        className="row-action flex h-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
+                      >
+                        <GitMerge size={13} />
+                      </button>
+
+                      <a
+                        href={urlMercadoLibre}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Buscar ${item.nombre} en MercadoLibre`}
+                        title={`Buscar ${item.marca} ${item.nombre} en MercadoLibre Argentina`}
+                        className="row-action flex h-7 items-center justify-center gap-0.5 rounded-md border border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-800 transition hover:bg-amber-100"
+                      >
+                        <span>ML</span>
+                        <ExternalLink size={10} />
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
           </div>
 
           {productos.length === 0 && (
@@ -1890,4 +1831,3 @@ export function CatalogSection({
     </section>
   )
 }
-

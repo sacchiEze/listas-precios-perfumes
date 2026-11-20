@@ -259,6 +259,15 @@
   color: #fda4af;
 }
 
+.dashboard-dark .text-amber-900,
+.dashboard-dark .text-amber-800 {
+  color: #fde68a;
+}
+
+.dashboard-dark .text-amber-700 {
+  color: #fcd34d;
+}
+
 .dashboard-dark .border-slate-200,
 .dashboard-dark .border-slate-100,
 .dashboard-dark .border-slate-200\/70,
@@ -268,6 +277,16 @@
 
 .dashboard-dark .border-violet-200 {
   border-color: rgba(139, 92, 246, 0.35);
+}
+
+.dashboard-dark .border-amber-200,
+.dashboard-dark .border-amber-300 {
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.dashboard-dark .border-emerald-200,
+.dashboard-dark .border-emerald-300 {
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .dashboard-dark .ring-slate-200 {

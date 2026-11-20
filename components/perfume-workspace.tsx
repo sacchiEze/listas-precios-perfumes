@@ -302,6 +302,9 @@ export function PerfumeWorkspace() {
   const marcasEliminadasStore = useConfiguracionStore(
     (estado) => estado.marcasEliminadas,
   )
+  const proveedoresDesactivadosStore = useConfiguracionStore(
+    (estado) => estado.proveedoresDesactivados,
+  )
   const setDolarDelDia = useConfiguracionStore((estado) => estado.setDolarDelDia)
   const setTipoDolarActivo = useConfiguracionStore(
     (estado) => estado.setTipoDolarActivo,
@@ -380,6 +383,15 @@ export function PerfumeWorkspace() {
   )
   const sincronizarConfiguracionMarcasDesdeDB = useConfiguracionStore(
     (estado) => estado.sincronizarConfiguracionMarcasDesdeDB,
+  )
+  const alternarProveedorComparacion = useConfiguracionStore(
+    (estado) => estado.alternarProveedorComparacion,
+  )
+  const setProveedorEnComparacion = useConfiguracionStore(
+    (estado) => estado.setProveedorEnComparacion,
+  )
+  const activarTodosLosProveedores = useConfiguracionStore(
+    (estado) => estado.activarTodosLosProveedores,
   )
 
   const itemsWatchlistStore = useWatchlistStore((estado) => estado.items)
@@ -477,6 +489,14 @@ export function PerfumeWorkspace() {
   const marcasEliminadas = useMemo(
     () => (hidratado ? marcasEliminadasStore : {}),
     [hidratado, marcasEliminadasStore],
+  )
+  const proveedoresDesactivados = useMemo(
+    () => (hidratado ? proveedoresDesactivadosStore : []),
+    [hidratado, proveedoresDesactivadosStore],
+  )
+  const proveedoresDesactivadosSet = useMemo(
+    () => new Set(proveedoresDesactivados),
+    [proveedoresDesactivados],
   )
 
   useEffect(() => {
@@ -725,13 +745,10 @@ export function PerfumeWorkspace() {
     setFiltros,
   ])
 
-  // Catálogo base global sin filtrar para KPIs, conteos de sidebar, oportunidades y sync de carrito
+  // Catálogo completo (sin filtrar por proveedores desactivados) para carrito, fusiones, marcas e importador
   const {
-    productos: productosGlobales,
-    totalSinFiltrar,
+    productos: productosCatalogoCompleto,
     proveedoresDisponibles,
-    marcasDisponibles,
-    tiposDisponibles,
   } = useCatalogoPerfumes(filasCatalogo, dolarDelDia, FILTROS_CATALOGO_INICIALES, {
     mapaVariaciones,
     configRentabilidad,
@@ -741,10 +758,42 @@ export function PerfumeWorkspace() {
     marcasEliminadas,
   })
 
+  // Catálogo base activo para KPIs, oportunidades, alertas y comparación entre proveedores activos
+  const {
+    productos: productosGlobales,
+    totalSinFiltrar,
+    proveedoresActivos,
+    marcasDisponibles,
+    tiposDisponibles,
+  } = useCatalogoPerfumes(filasCatalogo, dolarDelDia, FILTROS_CATALOGO_INICIALES, {
+    mapaVariaciones,
+    configRentabilidad,
+    categoriasPorMarca,
+    tiposPorProducto,
+    tiposPorMarca,
+    marcasEliminadas,
+    proveedoresDesactivados,
+  })
+
   const mapaProductosGlobales = useMemo(
-    () => new Map(productosGlobales.map((p) => [p.producto_id, p])),
-    [productosGlobales],
+    () => new Map(productosCatalogoCompleto.map((p) => [p.producto_id, p])),
+    [productosCatalogoCompleto],
   )
+
+  const conteoStockTotalPorProveedor = useMemo(() => {
+    const conteo: Record<string, number> = {}
+    for (const proveedor of proveedoresDisponibles) {
+      conteo[proveedor] = 0
+    }
+    for (const prod of productosCatalogoCompleto) {
+      for (const oferta of Object.values(prod.ofertas)) {
+        if (oferta.disponible) {
+          conteo[oferta.proveedor] = (conteo[oferta.proveedor] ?? 0) + 1
+        }
+      }
+    }
+    return conteo
+  }, [productosCatalogoCompleto, proveedoresDisponibles])
 
   const alertasWatchlistEvaluadas = useMemo(
     () => evaluarAlertasWatchlist(itemsWatchlist, productosGlobales, dolarDelDia),
@@ -787,6 +836,7 @@ export function PerfumeWorkspace() {
       tiposPorProducto,
       tiposPorMarca,
       marcasEliminadas,
+      proveedoresDesactivados,
     },
   )
 
@@ -803,6 +853,7 @@ export function PerfumeWorkspace() {
         filtros.ordenarPor,
         filtros.pestanaActiva,
         filtros.filtroInteligencia,
+        proveedoresDesactivados,
         precioMinInput.trim(),
         precioMaxInput.trim(),
       ]),
@@ -817,6 +868,7 @@ export function PerfumeWorkspace() {
       filtros.ordenarPor,
       filtros.pestanaActiva,
       filtros.filtroInteligencia,
+      proveedoresDesactivados,
       precioMinInput,
       precioMaxInput,
     ],
@@ -857,17 +909,55 @@ export function PerfumeWorkspace() {
     setPaginaCatalogo,
   ])
 
+  // Guardias post-hidratación para evitar estados huérfanos con proveedores desactivados
+  useEffect(() => {
+    if (!hidratado) return
+    if (proveedoresDisponibles.length > 0 && proveedoresActivos.length === 0) {
+      activarTodosLosProveedores()
+    }
+  }, [
+    hidratado,
+    proveedoresDisponibles.length,
+    proveedoresActivos.length,
+    activarTodosLosProveedores,
+  ])
+
+  useEffect(() => {
+    if (!hidratado) return
+    if (
+      filtros.pestanaActiva !== 'GLOBAL' &&
+      proveedoresDesactivadosSet.has(filtros.pestanaActiva)
+    ) {
+      setFiltros((prev) => ({ ...prev, pestanaActiva: 'GLOBAL' }))
+    }
+  }, [hidratado, filtros.pestanaActiva, proveedoresDesactivadosSet, setFiltros])
+
+  useEffect(() => {
+    if (!hidratado) return
+    if (
+      historySupplierTab !== 'GLOBAL' &&
+      proveedoresDesactivadosSet.has(historySupplierTab)
+    ) {
+      setHistorySupplierTab('GLOBAL')
+    }
+  }, [
+    hidratado,
+    historySupplierTab,
+    proveedoresDesactivadosSet,
+    setHistorySupplierTab,
+  ])
+
   // Mantener actualizados los precios del carrito desde el catálogo completo
   useEffect(() => {
-    if (hidratado && productosGlobales.length > 0) {
-      sincronizarPreciosDesdeCatalogo(productosGlobales)
+    if (hidratado && productosCatalogoCompleto.length > 0) {
+      sincronizarPreciosDesdeCatalogo(productosCatalogoCompleto)
     }
-  }, [hidratado, productosGlobales, sincronizarPreciosDesdeCatalogo])
+  }, [hidratado, productosCatalogoCompleto, sincronizarPreciosDesdeCatalogo])
 
   // Métricas globales del resumen e inteligencia de precios
   const metricasGlobales = useMemo(() => {
     const conteoStockPorProveedor: Record<string, number> = {}
-    for (const proveedor of proveedoresDisponibles) {
+    for (const proveedor of proveedoresActivos) {
       conteoStockPorProveedor[proveedor] = 0
     }
 
@@ -908,7 +998,7 @@ export function PerfumeWorkspace() {
 
     const totalSlots = Math.max(
       1,
-      productosGlobales.length * Math.max(1, proveedoresDisponibles.length),
+      productosGlobales.length * Math.max(1, proveedoresActivos.length),
     )
     const porcentajeConStock = Math.round(
       (ofertasDisponiblesCount / totalSlots) * 100,
@@ -954,7 +1044,7 @@ export function PerfumeWorkspace() {
     }
   }, [
     productosGlobales,
-    proveedoresDisponibles,
+    proveedoresActivos,
     idsWatchlist.size,
     idsAlertasActivas.size,
     idsFaltaReponer,
@@ -1129,7 +1219,7 @@ export function PerfumeWorkspace() {
     async (ids: number[], nombreFinal: string) => {
       // El destino es el perfume con más proveedores (en empate, el primer ID escrito)
       const ofertasDe = (id: number) =>
-        productosGlobales.find((p) => p.producto_id === id)?.ofertas ?? {}
+        productosCatalogoCompleto.find((p) => p.producto_id === id)?.ofertas ?? {}
       const destinoId = [...ids].sort(
         (a, b) =>
           Object.keys(ofertasDe(b)).length - Object.keys(ofertasDe(a)).length,
@@ -1146,7 +1236,14 @@ export function PerfumeWorkspace() {
       setMensajeSyncFotos(`${ids.length} perfumes fusionados en «${nombreFinal}».`)
       setTimeout(() => setMensajeSyncFotos(null), 5000)
     },
-    [productosGlobales, usandoDemo, cargarCatalogo],
+    [productosCatalogoCompleto, usandoDemo, cargarCatalogo],
+  )
+
+  const manejarAlternarProveedor = useCallback(
+    (proveedor: string) => {
+      alternarProveedorComparacion(proveedor, proveedoresDisponibles)
+    },
+    [alternarProveedorComparacion, proveedoresDisponibles],
   )
 
   const resumenMarcasEditables = useMemo<ResumenMarcaEditable[]>(() => {
@@ -1159,7 +1256,7 @@ export function PerfumeWorkspace() {
         conteoTipos: Record<string, number>
       }
     >()
-    for (const prod of productosGlobales) {
+    for (const prod of productosCatalogoCompleto) {
       const clave = normalizarClaveMarca(prod.marca)
       if (!clave) continue
       const existente = mapa.get(clave)
@@ -1203,7 +1300,7 @@ export function PerfumeWorkspace() {
         }
       })
       .sort((a, b) => a.marca.localeCompare(b.marca, 'es-AR'))
-  }, [productosGlobales, categoriasPorMarca, tiposPorMarca])
+  }, [productosCatalogoCompleto, categoriasPorMarca, tiposPorMarca])
 
   const abrirEditorMarcas = useCallback((marcaInicial?: string) => {
     setMarcaFiltroModalMarcas(marcaInicial ?? null)
@@ -1497,15 +1594,30 @@ export function PerfumeWorkspace() {
   )
 
   const productoHistorialActivo = useMemo(() => {
-    if (productosGlobales.length === 0) return undefined
+    if (productosGlobales.length === 0 && productosCatalogoCompleto.length === 0) {
+      return undefined
+    }
     if (productoHistorialId !== null) {
-      const encontrado = productosGlobales.find(
-        (item) => item.producto_id === productoHistorialId,
-      )
+      const encontrado =
+        productosGlobales.find(
+          (item) => item.producto_id === productoHistorialId,
+        ) ??
+        productosCatalogoCompleto.find(
+          (item) => item.producto_id === productoHistorialId,
+        )
       if (encontrado) return encontrado
     }
-    return metricasGlobales.oportunidades[0] ?? productosGlobales[0]
-  }, [productosGlobales, productoHistorialId, metricasGlobales.oportunidades])
+    return (
+      metricasGlobales.oportunidades[0] ??
+      productosGlobales[0] ??
+      productosCatalogoCompleto[0]
+    )
+  }, [
+    productosGlobales,
+    productosCatalogoCompleto,
+    productoHistorialId,
+    metricasGlobales.oportunidades,
+  ])
 
   useEffect(() => {
     let cancelado = false
@@ -1557,12 +1669,15 @@ export function PerfumeWorkspace() {
     for (const punto of datosHistorial) {
       for (const clave of Object.keys(punto)) {
         if (clave.endsWith(sufijo)) {
-          claves.add(clave.slice(0, -sufijo.length))
+          const proveedor = clave.slice(0, -sufijo.length)
+          if (!proveedoresDesactivadosSet.has(proveedor)) {
+            claves.add(proveedor)
+          }
         }
       }
     }
     return Array.from(claves)
-  }, [datosHistorial, monedaVisualizacion])
+  }, [datosHistorial, monedaVisualizacion, proveedoresDesactivadosSet])
 
   const proveedoresGraficoHistorial = useMemo(() => {
     if (historySupplierTab === 'GLOBAL') return proveedoresEnHistorial
@@ -1607,6 +1722,7 @@ export function PerfumeWorkspace() {
       for (const [clave, valorBruto] of Object.entries(punto)) {
         if (clave.endsWith(sufijo)) {
           const proveedor = clave.slice(0, -sufijo.length)
+          if (proveedoresDesactivadosSet.has(proveedor)) continue
           registrarCandidato(proveedor, Number(valorBruto), fechaPunto)
         }
       }
@@ -1616,6 +1732,7 @@ export function PerfumeWorkspace() {
       for (const [proveedor, oferta] of Object.entries(
         productoHistorialActivo.ofertas,
       )) {
+        if (proveedoresDesactivadosSet.has(proveedor)) continue
         const precioActual =
           monedaVisualizacion === 'USD'
             ? oferta.precioBaseEnUSD
@@ -1674,6 +1791,7 @@ export function PerfumeWorkspace() {
     monedaVisualizacion,
     productoHistorialActivo,
     dolarDelDia,
+    proveedoresDesactivadosSet,
   ])
 
   const resumenesCarrito = useMemo(
@@ -2154,55 +2272,138 @@ export function PerfumeWorkspace() {
             <Tags size={17} strokeWidth={1.8} className="shrink-0 text-violet-600" />
             <span className="flex-1">Editar marcas</span>
             <span className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-violet-200">
-              {marcasDisponibles.length}
+              {resumenMarcasEditables.length}
             </span>
           </button>
         </nav>
 
-        <div className="my-3.5 hidden border-t border-slate-100 lg:block" />
+        <div className="my-3.5 hidden shrink-0 border-t border-slate-100 lg:block" />
 
-        <div className="mb-3 hidden px-2 text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400 lg:block">
-          Proveedores
-        </div>
-
-        <div className="hidden max-h-[210px] flex-col gap-1 overflow-y-auto lg:flex">
-          {proveedoresDisponibles.map((nombre, indice) => {
-            const activo =
-              view === 'catalog' && filtros.pestanaActiva === nombre
-            return (
+        <div className="mb-3 hidden shrink-0 items-center justify-between px-2 lg:flex">
+          <span className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400">
+            Proveedores
+          </span>
+          {proveedoresActivos.length < proveedoresDisponibles.length && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-medium text-slate-400">
+                {proveedoresActivos.length}/{proveedoresDisponibles.length}
+              </span>
               <button
                 type="button"
+                onClick={activarTodosLosProveedores}
+                className="text-[10px] font-semibold text-violet-700 hover:underline"
+              >
+                Todos
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="hidden max-h-[210px] shrink-0 flex-col gap-1 overflow-y-auto lg:flex">
+          {proveedoresDisponibles.map((nombre, indice) => {
+            const estaActivo = !proveedoresDesactivadosSet.has(nombre)
+            const esUnicoActivo = estaActivo && proveedoresActivos.length <= 1
+            const activo =
+              estaActivo && view === 'catalog' && filtros.pestanaActiva === nombre
+            return (
+              <div
                 key={nombre}
-                onClick={() => {
-                  setFiltros((prev) => ({
-                    ...prev,
-                    pestanaActiva:
-                      prev.pestanaActiva === nombre ? 'GLOBAL' : nombre,
-                  }))
-                  setView('catalog')
-                }}
-                className={`supplier-link flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12px] font-medium transition ${
+                className={`supplier-link flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition ${
                   activo
                     ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                    : estaActivo
+                      ? 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                      : 'text-slate-400 opacity-75 hover:bg-slate-50'
                 }`}
               >
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{
-                    backgroundColor: obtenerColorProveedor(nombre, indice),
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!estaActivo) {
+                      setProveedorEnComparacion(
+                        nombre,
+                        true,
+                        proveedoresDisponibles,
+                      )
+                      setFiltros((prev) => ({
+                        ...prev,
+                        pestanaActiva: nombre,
+                      }))
+                    } else {
+                      setFiltros((prev) => ({
+                        ...prev,
+                        pestanaActiva:
+                          prev.pestanaActiva === nombre ? 'GLOBAL' : nombre,
+                      }))
+                    }
+                    setView('catalog')
                   }}
-                />
-                <span className="truncate">{nombre}</span>
-                <span className="ml-auto text-[10px] text-slate-400">
-                  {metricasGlobales.conteoStockPorProveedor[nombre] ?? 0}
-                </span>
-              </button>
+                  title={
+                    estaActivo
+                      ? `Filtrar catálogo por ${nombre}`
+                      : `Reactivar y filtrar catálogo por ${nombre}`
+                  }
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-[12px] font-medium"
+                >
+                  <span
+                    className={`size-2 shrink-0 rounded-full ${
+                      estaActivo ? '' : 'opacity-40'
+                    }`}
+                    style={{
+                      backgroundColor: obtenerColorProveedor(nombre, indice),
+                    }}
+                  />
+                  <span className={`truncate ${estaActivo ? '' : 'line-through'}`}>
+                    {nombre}
+                  </span>
+                  <span className="ml-auto shrink-0 text-[10px] text-slate-400">
+                    {conteoStockTotalPorProveedor[nombre] ?? 0}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={estaActivo}
+                  aria-label={
+                    estaActivo
+                      ? `Desactivar ${nombre} de la comparación`
+                      : `Activar ${nombre} en la comparación`
+                  }
+                  title={
+                    esUnicoActivo
+                      ? 'Debe quedar al menos un proveedor activo'
+                      : estaActivo
+                        ? `Desactivar ${nombre} de la comparación`
+                        : `Activar ${nombre} en la comparación`
+                  }
+                  disabled={esUnicoActivo}
+                  onClick={() => manejarAlternarProveedor(nombre)}
+                  className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition ${
+                    estaActivo
+                      ? 'border-violet-600 bg-violet-600'
+                      : 'border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700'
+                  } ${
+                    esUnicoActivo
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'cursor-pointer'
+                  }`}
+                >
+                  <span
+                    style={{ backgroundColor: '#ffffff' }}
+                    className={`inline-block size-3 rounded-full shadow-xs transition-transform ${
+                      estaActivo ? 'translate-x-3.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
             )
           })}
         </div>
 
-        <div className="mt-auto hidden rounded-xl border border-slate-200 bg-[#faf9fc] p-3.5 lg:block">
+        <div className="mt-3 hidden shrink-0 lg:block" />
+
+        <div className="mt-auto hidden shrink-0 rounded-xl border border-slate-200 bg-[#faf9fc] p-3.5 lg:block">
           <div className="mb-2 flex items-center gap-2 text-violet-700">
             <Sparkles size={15} />
             <span className="text-[11px] font-semibold">
@@ -2253,7 +2454,7 @@ export function PerfumeWorkspace() {
           </div>
         </div>
 
-        <div className="mt-4 hidden items-center gap-2 border-t border-slate-100 pt-4 lg:flex">
+        <div className="mt-4 hidden shrink-0 items-center gap-2 border-t border-slate-100 pt-4 lg:flex">
           <div className="flex size-8 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-700">
             PH
           </div>
@@ -2538,10 +2739,12 @@ export function PerfumeWorkspace() {
                   </div>
                   <div className="flex items-end justify-between">
                     <strong className="text-[25px] font-semibold tracking-[-.04em] text-slate-900">
-                      {proveedoresDisponibles.length}
+                      {proveedoresActivos.length}
                     </strong>
                     <span className="pb-1 text-[10px] font-medium text-slate-400">
-                      Listas conectadas
+                      {proveedoresActivos.length < proveedoresDisponibles.length
+                        ? `de ${proveedoresDisponibles.length} listas`
+                        : 'Listas conectadas'}
                     </span>
                   </div>
                 </article>
@@ -2737,7 +2940,20 @@ export function PerfumeWorkspace() {
 
                   <div className="flex flex-1 flex-col divide-y divide-slate-100">
                     {monitorTab === 'arbitraje' &&
-                      (metricasGlobales.oportunidadesArbitraje.length === 0 ? (
+                      (proveedoresActivos.length < 2 ? (
+                        <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
+                          <p className="text-[12px] text-slate-500">
+                            Activá al menos 2 proveedores para comparar brechas entre listas.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={activarTodosLosProveedores}
+                            className="mt-2.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100"
+                          >
+                            Activar todos
+                          </button>
+                        </div>
+                      ) : metricasGlobales.oportunidadesArbitraje.length === 0 ? (
                         <p className="py-6 text-center text-[12px] text-slate-400">
                           Sin brechas de arbitraje significativas en este momento.
                         </p>
@@ -3031,6 +3247,12 @@ export function PerfumeWorkspace() {
                               : monitorTab === 'bajaron'
                                 ? 'BAJARON'
                                 : 'SEGUIMIENTO',
+                          ...(monitorTab === 'arbitraje'
+                            ? {
+                                ordenarPor: 'mayor_brecha',
+                                pestanaActiva: 'GLOBAL',
+                              }
+                            : {}),
                         }))
                         setView('catalog')
                       }}
@@ -3057,6 +3279,10 @@ export function PerfumeWorkspace() {
                 productos={productosVisibles}
                 totalSinFiltrar={totalSinFiltrar}
                 proveedoresDisponibles={proveedoresDisponibles}
+                proveedoresActivos={proveedoresActivos}
+                proveedoresDesactivados={proveedoresDesactivados}
+                onAlternarProveedor={manejarAlternarProveedor}
+                onActivarTodosLosProveedores={activarTodosLosProveedores}
                 marcasDisponibles={marcasDisponibles}
                 tiposDisponibles={tiposDisponibles}
                 filtros={filtros}
@@ -3113,6 +3339,10 @@ export function PerfumeWorkspace() {
               productos={productosVisibles}
               totalSinFiltrar={totalSinFiltrar}
               proveedoresDisponibles={proveedoresDisponibles}
+              proveedoresActivos={proveedoresActivos}
+              proveedoresDesactivados={proveedoresDesactivados}
+              onAlternarProveedor={manejarAlternarProveedor}
+              onActivarTodosLosProveedores={activarTodosLosProveedores}
               marcasDisponibles={marcasDisponibles}
               tiposDisponibles={tiposDisponibles}
               filtros={filtros}
@@ -3507,6 +3737,14 @@ export function PerfumeWorkspace() {
                               }}
                               className="max-w-[220px] bg-transparent font-medium outline-none"
                             >
+                              {prod &&
+                                !productosGlobales.some(
+                                  (p) => p.producto_id === prod.producto_id,
+                                ) && (
+                                  <option value={prod.producto_id}>
+                                    {prod.marca} · {prod.nombre}
+                                  </option>
+                                )}
                               {productosGlobales.map((item) => (
                                 <option
                                   key={item.producto_id}
@@ -3645,7 +3883,7 @@ export function PerfumeWorkspace() {
                       </article>
                     </section>
 
-                    {/*Precios en los tres proveedores */}
+                    {/*Precios en los proveedores activos */}
                     <section className="dashboard-card rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
                       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -3657,10 +3895,25 @@ export function PerfumeWorkspace() {
                             {monedaVisualizacion}
                           </p>
                         </div>
+                        {proveedoresActivos.length < proveedoresDisponibles.length && (
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="text-slate-400">
+                              {proveedoresActivos.length} de{' '}
+                              {proveedoresDisponibles.length} activos
+                            </span>
+                            <button
+                              type="button"
+                              onClick={activarTodosLosProveedores}
+                              className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700 transition hover:bg-violet-100"
+                            >
+                              Activar todos
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        {proveedoresDisponibles.map((nombre) => {
+                        {proveedoresActivos.map((nombre) => {
                           const oferta = prod?.ofertas[nombre]
                           const esMejor =
                             prod?.proveedorMasBarato === nombre &&
@@ -4404,7 +4657,7 @@ export function PerfumeWorkspace() {
       {modalImportadorAbierto && (
         <ImportadorListasModal
           proveedoresDisponibles={proveedoresDisponibles}
-          productosGlobales={productosGlobales}
+          productosGlobales={productosCatalogoCompleto}
           alias={aliasProductos}
           categoriasPorMarca={categoriasPorMarca}
           marcasEliminadas={marcasEliminadas}
@@ -4431,7 +4684,7 @@ export function PerfumeWorkspace() {
 
       {modalFusionIdAbierto && (
         <ModalFusionPorId
-          productos={productosGlobales}
+          productos={productosCatalogoCompleto}
           onFusionar={manejarFusionarPorId}
           onCerrar={() => setModalFusionIdAbierto(false)}
         />
@@ -4440,7 +4693,7 @@ export function PerfumeWorkspace() {
       {productoFusionManual && (
         <ModalFusionManual
           producto={productoFusionManual}
-          productos={productosGlobales}
+          productos={productosCatalogoCompleto}
           onFusionar={manejarFusionarPerfumes}
           onCerrar={() => setProductoFusionManual(null)}
         />

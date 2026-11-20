@@ -157,6 +157,10 @@ export function CatalogSection({
   productos,
   totalSinFiltrar,
   proveedoresDisponibles,
+  proveedoresActivos,
+  proveedoresDesactivados,
+  onAlternarProveedor,
+  onActivarTodosLosProveedores,
   marcasDisponibles,
   tiposDisponibles,
   filtros,
@@ -208,6 +212,10 @@ export function CatalogSection({
   productos: ProductoComparado[]
   totalSinFiltrar: number
   proveedoresDisponibles: string[]
+  proveedoresActivos: string[]
+  proveedoresDesactivados: string[]
+  onAlternarProveedor: (proveedor: string) => void
+  onActivarTodosLosProveedores: () => void
   marcasDisponibles: string[]
   tiposDisponibles: TipoProducto[]
   filtros: FiltrosCatalogo
@@ -296,9 +304,20 @@ export function CatalogSection({
     onCambiarPagina(1)
   }
 
+  const hayProveedoresDesactivados =
+    proveedoresActivos.length < proveedoresDisponibles.length
+  const proveedoresExcluidos = proveedoresDisponibles.filter(
+    (p) => !proveedoresActivos.includes(p),
+  )
+  const resumenComparados =
+    proveedoresActivos.length === 2
+      ? proveedoresActivos.join(' vs ')
+      : proveedoresActivos.join(', ')
+
   const displayedSuppliers =
-    filtros.pestanaActiva === 'GLOBAL'
-      ? proveedoresDisponibles
+    filtros.pestanaActiva === 'GLOBAL' ||
+    proveedoresDesactivados.includes(filtros.pestanaActiva)
+      ? proveedoresActivos
       : [filtros.pestanaActiva]
 
   const [busquedaMarcaFiltro, setBusquedaMarcaFiltro] = useState('')
@@ -553,8 +572,8 @@ export function CatalogSection({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 lg:flex-row lg:items-center">
-        <label className="relative min-w-0 flex-1 lg:max-w-[320px]">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 lg:flex-row lg:flex-wrap lg:items-center">
+        <label className="relative min-w-0 flex-1 lg:min-w-[200px] lg:max-w-[320px]">
           <Search
             size={15}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -570,7 +589,7 @@ export function CatalogSection({
         </label>
 
         <div className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto">
-          {(['GLOBAL', ...proveedoresDisponibles] as const).map((nombre) => (
+          {(['GLOBAL', ...proveedoresActivos] as const).map((nombre) => (
             <button
               type="button"
               key={nombre}
@@ -583,7 +602,11 @@ export function CatalogSection({
                   : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
-              {nombre === 'GLOBAL' ? 'Todos los proveedores' : nombre}
+              {nombre === 'GLOBAL'
+                ? hayProveedoresDesactivados
+                  ? `Activos (${proveedoresActivos.length})`
+                  : 'Todos los proveedores'
+                : nombre}
             </button>
           ))}
         </div>
@@ -634,6 +657,87 @@ export function CatalogSection({
         </div>
       </div>
 
+      {/* Barra para activar o desactivar proveedores de la comparación */}
+      {proveedoresDisponibles.length > 0 && (
+        <div
+          role="group"
+          aria-label="Activar o desactivar proveedores en la comparación"
+          className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-4 py-2 sm:px-5"
+        >
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Comparar
+          </span>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {proveedoresDisponibles.map((nombre) => {
+              const activo = !proveedoresDesactivados.includes(nombre)
+              const esUnicoActivo = activo && proveedoresActivos.length <= 1
+              const color = obtenerColorProveedor(
+                nombre,
+                mapIndicesProveedores.get(nombre) ?? 0,
+              )
+
+              return (
+                <button
+                  key={nombre}
+                  type="button"
+                  role="switch"
+                  aria-checked={activo}
+                  aria-label={
+                    activo
+                      ? `Desactivar ${nombre} de la comparación`
+                      : `Activar ${nombre} en la comparación`
+                  }
+                  title={
+                    esUnicoActivo
+                      ? 'Debe quedar al menos un proveedor activo'
+                      : activo
+                        ? `Quitar ${nombre} de la comparación`
+                        : `Incluir ${nombre} en la comparación`
+                  }
+                  disabled={esUnicoActivo}
+                  onClick={() => onAlternarProveedor(nombre)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                    activo
+                      ? 'border-violet-200 bg-violet-50 text-slate-800 hover:bg-slate-50'
+                      : 'border-dashed border-slate-200 bg-slate-50 text-slate-400 hover:text-slate-600'
+                  } ${esUnicoActivo ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                >
+                  <span
+                    className={`size-2 shrink-0 rounded-full ${
+                      activo ? '' : 'opacity-40'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className={activo ? '' : 'line-through'}>{nombre}</span>
+                  {activo ? (
+                    <Check size={11} className="text-violet-700" />
+                  ) : (
+                    <EyeOff size={11} className="text-slate-400" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {hayProveedoresDesactivados && (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">
+                {proveedoresActivos.length} de {proveedoresDisponibles.length}{' '}
+                activos
+              </span>
+              <button
+                type="button"
+                onClick={onActivarTodosLosProveedores}
+                className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 transition hover:bg-slate-50"
+              >
+                Activar todos
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Píldoras rápidas de Inteligencia de Precios, Watchlist y Reposición */}
       <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
         <span className="mr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -645,7 +749,11 @@ export function CatalogSection({
             <button
               key={pildora.id}
               type="button"
-              onClick={() =>
+              onClick={() => {
+                if (pildora.id === 'ARBITRAJE') {
+                  alternarOportunidadesArbitraje()
+                  return
+                }
                 setFiltros((prev) => ({
                   ...prev,
                   filtroInteligencia:
@@ -653,7 +761,7 @@ export function CatalogSection({
                       ? 'TODOS'
                       : pildora.id,
                 }))
-              }
+              }}
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
                 activo
                   ? 'border-violet-300 bg-[#34294d] text-white'
@@ -1005,21 +1113,46 @@ export function CatalogSection({
       )}
 
       {filtroArbitrajeActivo && (
-        <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50/90 px-4 py-2.5 text-xs sm:px-5">
-          <div className="flex items-center gap-2 text-amber-900">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs sm:px-5">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
             <Zap size={14} className="shrink-0 fill-amber-500 text-amber-600" />
             <span>
-              Mostrando perfumes donde un proveedor está <strong>notablemente más barato (≥5%)</strong> respecto a los demás en la lista.
+              {proveedoresActivos.length < 2 ? (
+                'Activá al menos 2 proveedores arriba para comparar diferencias de precio entre listas.'
+              ) : hayProveedoresDesactivados ? (
+                <>
+                  Mostrando perfumes donde un proveedor está{' '}
+                  <strong>notablemente más barato (≥5%)</strong> comparando{' '}
+                  <strong>{resumenComparados}</strong> (excluidos:{' '}
+                  {proveedoresExcluidos.join(', ')}).
+                </>
+              ) : (
+                <>
+                  Mostrando perfumes donde un proveedor está{' '}
+                  <strong>notablemente más barato (≥5%)</strong> respecto a los demás en la lista.
+                </>
+              )}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={alternarOportunidadesArbitraje}
-            className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
-          >
-            <X size={11} />
-            Mostrar todos
-          </button>
+          <div className="flex items-center gap-1.5">
+            {hayProveedoresDesactivados && (
+              <button
+                type="button"
+                onClick={onActivarTodosLosProveedores}
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-violet-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-violet-700 transition hover:bg-violet-50"
+              >
+                Activar todos
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={alternarOportunidadesArbitraje}
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100 dark:text-amber-200"
+            >
+              <X size={11} />
+              Mostrar todos
+            </button>
+          </div>
         </div>
       )}
 
@@ -1675,18 +1808,33 @@ export function CatalogSection({
             <div className="flex flex-col items-center justify-center py-14 text-center">
               <Search size={20} className="mb-2 text-slate-300" />
               <p className="text-[12px] font-medium text-slate-600">
-                No se encontraron productos
+                {filtroArbitrajeActivo && proveedoresActivos.length < 2
+                  ? 'Necesitás al menos 2 proveedores activos'
+                  : 'No se encontraron productos'}
               </p>
               <p className="mt-1 text-[11px] text-slate-400">
-                Probá con otra búsqueda o ajustá los filtros.
+                {filtroArbitrajeActivo && proveedoresActivos.length < 2
+                  ? 'Activá más proveedores arriba para comparar diferencias de precio entre listas.'
+                  : 'Probá con otra búsqueda o ajustá los filtros.'}
               </p>
-              <button
-                type="button"
-                onClick={onLimpiarFiltros}
-                className="mt-3 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Limpiar filtros
-              </button>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                {hayProveedoresDesactivados && (
+                  <button
+                    type="button"
+                    onClick={onActivarTodosLosProveedores}
+                    className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-[11px] font-semibold text-violet-700 hover:bg-slate-50"
+                  >
+                    Activar todos los proveedores
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onLimpiarFiltros}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
             </div>
           )}
 

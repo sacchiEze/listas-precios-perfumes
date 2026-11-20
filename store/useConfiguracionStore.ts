@@ -81,6 +81,8 @@ interface EstadoConfiguracion extends ConfiguracionRentabilidad {
   tiposPorMarca: Record<string, TipoProducto>
   /** Marcas eliminadas permanentemente (clave normalizada -> nombre original) */
   marcasEliminadas: Record<string, string>
+  /** Proveedores excluidos temporalmente de la comparación y arbitraje */
+  proveedoresDesactivados: string[]
   setDolarDelDia: (nuevoValor: number) => void
   setTipoDolarActivo: (tipo: TipoCotizacionDolar) => void
   setCotizacionesDolar: (cotizaciones: CotizacionesDolarDia) => void
@@ -125,6 +127,97 @@ interface EstadoConfiguracion extends ConfiguracionRentabilidad {
   eliminarMarcaParaSiempre: (marca: string) => void
   restaurarMarcaEliminada: (marcaNorm: string) => void
   sincronizarConfiguracionMarcasDesdeDB: (registros: ConfiguracionMarca[]) => void
+  alternarProveedorComparacion: (
+    proveedor: string,
+    proveedoresDisponibles?: string[],
+  ) => void
+  setProveedorEnComparacion: (
+    proveedor: string,
+    activo: boolean,
+    proveedoresDisponibles?: string[],
+  ) => void
+  activarTodosLosProveedores: () => void
+}
+
+/**
+ * Calcula la nueva lista de proveedores desactivados asegurando que,
+ * cuando se conoce la lista disponible, quede al menos un proveedor activo.
+ */
+export function calcularSiguienteEstadoProveedoresDesactivados(
+  desactivadosActuales: string[],
+  proveedor: string,
+  activoObjetivo: boolean,
+  proveedoresDisponibles?: string[],
+): string[] {
+  const nombre = proveedor.trim()
+  if (!nombre) return desactivadosActuales
+
+  const setActual = new Set(desactivadosActuales)
+
+  if (activoObjetivo) {
+    if (!setActual.has(nombre)) return desactivadosActuales
+    return desactivadosActuales.filter((p) => p !== nombre)
+  }
+
+  if (setActual.has(nombre)) return desactivadosActuales
+
+  if (proveedoresDisponibles && proveedoresDisponibles.length > 0) {
+    const activosActuales = proveedoresDisponibles.filter((p) => !setActual.has(p))
+    if (activosActuales.length <= 1 && activosActuales.includes(nombre)) {
+      return desactivadosActuales
+    }
+  }
+
+  return [...desactivadosActuales, nombre]
+}
+
+function normalizarProveedoresDesactivados(valor: unknown): string[] {
+  if (!Array.isArray(valor)) return []
+  const vistos = new Set<string>()
+  for (const item of valor) {
+    if (typeof item === 'string') {
+      const limpio = item.trim()
+      if (limpio) vistos.add(limpio)
+    }
+  }
+  return Array.from(vistos)
+}
+
+function aplicarCambioProveedorComparacion(
+  estado: EstadoConfiguracion,
+  proveedor: string,
+  activoObjetivo: boolean,
+  proveedoresDisponibles?: string[],
+): Partial<EstadoConfiguracion> | EstadoConfiguracion {
+  const siguientesDesactivados = calcularSiguienteEstadoProveedoresDesactivados(
+    estado.proveedoresDesactivados,
+    proveedor,
+    activoObjetivo,
+    proveedoresDisponibles,
+  )
+  if (siguientesDesactivados === estado.proveedoresDesactivados) {
+    return estado
+  }
+
+  const nombre = proveedor.trim()
+  const quedoDesactivado = siguientesDesactivados.includes(nombre)
+  const actualizacion: Partial<EstadoConfiguracion> = {
+    proveedoresDesactivados: siguientesDesactivados,
+  }
+
+  if (quedoDesactivado) {
+    if (estado.filtrosCatalogo.pestanaActiva === nombre) {
+      actualizacion.filtrosCatalogo = {
+        ...estado.filtrosCatalogo,
+        pestanaActiva: 'GLOBAL',
+      }
+    }
+    if (estado.historySupplierTab === nombre) {
+      actualizacion.historySupplierTab = 'GLOBAL'
+    }
+  }
+
+  return actualizacion
 }
 
 function normalizarFiltrosPersistidos(crudo: unknown): FiltrosCatalogo {
@@ -201,6 +294,7 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
       tiposPorProducto: {},
       tiposPorMarca: {},
       marcasEliminadas: {},
+      proveedoresDesactivados: [],
       ...CONFIG_RENTABILIDAD_INICIAL,
 
       setDolarDelDia: (nuevoValor: number) => {
@@ -511,6 +605,45 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
           }
         })
       },
+
+      alternarProveedorComparacion: (
+        proveedor: string,
+        proveedoresDisponibles?: string[],
+      ) => {
+        set((estado) => {
+          const nombre = proveedor.trim()
+          const estaDesactivado = estado.proveedoresDesactivados.includes(nombre)
+          return aplicarCambioProveedorComparacion(
+            estado,
+            nombre,
+            estaDesactivado,
+            proveedoresDisponibles,
+          )
+        })
+      },
+
+      setProveedorEnComparacion: (
+        proveedor: string,
+        activo: boolean,
+        proveedoresDisponibles?: string[],
+      ) => {
+        set((estado) =>
+          aplicarCambioProveedorComparacion(
+            estado,
+            proveedor,
+            activo,
+            proveedoresDisponibles,
+          ),
+        )
+      },
+
+      activarTodosLosProveedores: () => {
+        set((estado) =>
+          estado.proveedoresDesactivados.length === 0
+            ? estado
+            : { proveedoresDesactivados: [] },
+        )
+      },
     }),
     {
       name: 'perfumeria-configuracion-storage',
@@ -619,6 +752,9 @@ export const useConfiguracionStore = create<EstadoConfiguracion>()(
             !Array.isArray(p.marcasEliminadas)
               ? p.marcasEliminadas
               : currentState.marcasEliminadas,
+          proveedoresDesactivados: Array.isArray(p.proveedoresDesactivados)
+            ? normalizarProveedoresDesactivados(p.proveedoresDesactivados)
+            : currentState.proveedoresDesactivados,
         }
       },
     },

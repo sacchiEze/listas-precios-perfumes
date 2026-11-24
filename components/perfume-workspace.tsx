@@ -56,6 +56,7 @@ import {
 } from 'lucide-react'
 import {
   FILTROS_CATALOGO_INICIALES,
+  obtenerProveedorExclusivo,
   useCatalogoPerfumes,
 } from '@/hooks/useCatalogoPerfumes'
 import {
@@ -980,6 +981,11 @@ export function PerfumeWorkspace() {
     let bajaronCount = 0
     let subieronCount = 0
     let arbitrajeCount = 0
+    let exclusivosCount = 0
+    const exclusivosPorProveedor: Record<string, number> = {}
+    for (const proveedor of proveedoresActivos) {
+      exclusivosPorProveedor[proveedor] = 0
+    }
     let faltaReponerCount = 0
 
     for (const prod of productosGlobales) {
@@ -989,6 +995,14 @@ export function PerfumeWorkspace() {
       if ((prod.menorVariacionPorcentaje ?? 0) < -0.1) bajaronCount += 1
       if ((prod.mayorSubaPorcentaje ?? 0) > 0.1) subieronCount += 1
       if ((prod.brechaArbitrajePorcentaje ?? 0) >= 5) arbitrajeCount += 1
+      if (proveedoresActivos.length >= 2) {
+        const proveedorExclusivo = obtenerProveedorExclusivo(prod)
+        if (proveedorExclusivo) {
+          exclusivosCount += 1
+          exclusivosPorProveedor[proveedorExclusivo] =
+            (exclusivosPorProveedor[proveedorExclusivo] ?? 0) + 1
+        }
+      }
       if (idsFaltaReponer.has(prod.producto_id)) faltaReponerCount += 1
 
       for (const oferta of Object.values(prod.ofertas)) {
@@ -1048,6 +1062,8 @@ export function PerfumeWorkspace() {
         bajaron: bajaronCount,
         subieron: subieronCount,
         arbitraje: arbitrajeCount,
+        exclusivos: exclusivosCount,
+        exclusivosPorProveedor,
         seguimiento: idsWatchlist.size,
         alertasActivas: idsAlertasActivas.size,
         faltaReponer: faltaReponerCount,

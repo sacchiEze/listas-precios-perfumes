@@ -479,6 +479,19 @@ export function agruparCatalogoPerfumes(
 }
 
 /**
+ * Determina el único proveedor activo que tiene este producto en su lista
+ * (es decir, figura con precio en exactamente 1 proveedor activo y los demás no lo tienen).
+ */
+export function obtenerProveedorExclusivo(
+  producto: ProductoComparado,
+): string | null {
+  const ofertasEnLista = Object.values(producto.ofertas).filter(
+    (oferta) => oferta && oferta.precioBase !== null,
+  )
+  return ofertasEnLista.length === 1 ? ofertasEnLista[0].proveedor : null
+}
+
+/**
  * Filtra y ordena los productos ya agrupados según pestaña, inteligencia de precios,
  * atributos, rango de precios y búsqueda textual.
  */
@@ -563,6 +576,14 @@ export function filtrarYOrdenarCatalogo(
       }
     } else if (filtros.filtroInteligencia === 'ARBITRAJE') {
       if ((productoContextual.brechaArbitrajePorcentaje ?? 0) < 5) {
+        continue
+      }
+    } else if (filtros.filtroInteligencia === 'EXCLUSIVOS') {
+      const proveedorExclusivo = obtenerProveedorExclusivo(producto)
+      if (!proveedorExclusivo) {
+        continue
+      }
+      if (!esModoGlobal && proveedorExclusivo !== filtros.pestanaActiva) {
         continue
       }
     } else if (filtros.filtroInteligencia === 'SEGUIMIENTO') {

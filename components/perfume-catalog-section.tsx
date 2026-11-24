@@ -18,13 +18,17 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Star,
   Tags,
   TrendingDown,
   X,
   Zap,
 } from 'lucide-react'
-import { normalizarTextoBusqueda } from '@/hooks/useCatalogoPerfumes'
+import {
+  normalizarTextoBusqueda,
+  obtenerProveedorExclusivo,
+} from '@/hooks/useCatalogoPerfumes'
 import {
   calcularCostoPerfume,
   calcularRentabilidadUnitaria,
@@ -90,6 +94,8 @@ export interface CatalogSectionProps {
     bajaron: number
     subieron: number
     arbitraje: number
+    exclusivos: number
+    exclusivosPorProveedor: Record<string, number>
     seguimiento: number
     alertasActivas: number
     faltaReponer: number
@@ -189,6 +195,7 @@ export function CatalogSection({
   cantidadesEnCarritoPorProducto,
 }: CatalogSectionProps) {
   const filtroArbitrajeActivo = filtros.filtroInteligencia === 'ARBITRAJE'
+  const filtroExclusivosActivo = filtros.filtroInteligencia === 'EXCLUSIVOS'
 
   const alternarOportunidadesArbitraje = () => {
     if (filtroArbitrajeActivo) {
@@ -202,6 +209,21 @@ export function CatalogSection({
         filtroInteligencia: 'ARBITRAJE',
         ordenarPor: 'mayor_brecha',
         pestanaActiva: 'GLOBAL',
+      }))
+    }
+    onCambiarPagina(1)
+  }
+
+  const alternarProductosExclusivos = () => {
+    if (filtroExclusivosActivo) {
+      setFiltros((prev) => ({
+        ...prev,
+        filtroInteligencia: 'TODOS',
+      }))
+    } else {
+      setFiltros((prev) => ({
+        ...prev,
+        filtroInteligencia: 'EXCLUSIVOS',
       }))
     }
     onCambiarPagina(1)
@@ -301,6 +323,7 @@ export function CatalogSection({
     count?: number
     destacado?: boolean
     esArbitraje?: boolean
+    esExclusivos?: boolean
   }> = [
     { id: 'TODOS', etiqueta: 'Todos' },
     {
@@ -308,6 +331,12 @@ export function CatalogSection({
       etiqueta: 'Más baratos entre listas',
       count: conteosInteligencia.arbitraje,
       esArbitraje: true,
+    },
+    {
+      id: 'EXCLUSIVOS',
+      etiqueta: 'Exclusivos por tienda',
+      count: conteosInteligencia.exclusivos,
+      esExclusivos: true,
     },
     {
       id: 'BAJARON',
@@ -496,6 +525,43 @@ export function CatalogSection({
                         activo
                           ? 'bg-white/25 text-white'
                           : 'bg-amber-200 text-amber-950 dark:bg-amber-500/30 dark:text-amber-100'
+                      }`}
+                    >
+                      {pildora.count}
+                    </span>
+                  )}
+                </button>
+              )
+            }
+
+            if (pildora.esExclusivos) {
+              return (
+                <button
+                  key={pildora.id}
+                  type="button"
+                  onClick={alternarProductosExclusivos}
+                  title="Mostrar perfumes que solo vende una tienda y que las demás no tienen en su lista"
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                    activo
+                      ? 'border-violet-600 bg-violet-600 text-white shadow-xs hover:bg-violet-700'
+                      : 'border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100'
+                  }`}
+                >
+                  <Sparkles
+                    size={12}
+                    className={
+                      activo
+                        ? 'fill-white text-white'
+                        : 'text-violet-600'
+                    }
+                  />
+                  <span>{pildora.etiqueta}</span>
+                  {pildora.count !== undefined && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                        activo
+                          ? 'bg-white/25 text-white'
+                          : 'bg-violet-200 text-violet-950 dark:bg-violet-500/30 dark:text-violet-100'
                       }`}
                     >
                       {pildora.count}
@@ -1148,6 +1214,133 @@ export function CatalogSection({
         </div>
       )}
 
+      {/* Banner de productos exclusivos por tienda */}
+      {filtroExclusivosActivo && (
+        <div className="flex flex-col gap-2.5 border-b border-violet-200 bg-violet-50/90 px-4 py-2.5 text-xs sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-violet-950">
+              <Sparkles size={14} className="shrink-0 text-violet-600" />
+              <span>
+                {proveedoresActivos.length < 2 ? (
+                  'Activá al menos 2 proveedores arriba para comparar qué productos son exclusivos de cada tienda.'
+                ) : vistaProveedorActual !== 'GLOBAL' ? (
+                  <>
+                    Mostrando perfumes <strong>exclusivos de {vistaProveedorActual}</strong> que las demás tiendas activas ({proveedoresActivos.filter((p) => p !== vistaProveedorActual).join(', ')}) no tienen en su lista.
+                  </>
+                ) : hayProveedoresDesactivados ? (
+                  <>
+                    Mostrando perfumes que figuran en{' '}
+                    <strong>una sola tienda</strong> y que las demás no tienen en su lista (comparando{' '}
+                    <strong>{resumenComparados}</strong>; excluidos:{' '}
+                    {proveedoresExcluidos.join(', ')}).
+                  </>
+                ) : (
+                  <>
+                    Mostrando perfumes que se venden en{' '}
+                    <strong>una sola tienda</strong> y que las demás no tienen en su lista.
+                  </>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {hayProveedoresDesactivados && (
+                <button
+                  type="button"
+                  onClick={onActivarTodosLosProveedores}
+                  className="inline-flex shrink-0 items-center gap-1 rounded border border-violet-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-violet-700 transition hover:bg-violet-50"
+                >
+                  Activar todos
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={alternarProductosExclusivos}
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-violet-300 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-violet-800 transition hover:bg-violet-100"
+              >
+                <X size={11} />
+                Mostrar todos
+              </button>
+            </div>
+          </div>
+
+          {proveedoresActivos.length >= 2 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-violet-700/80">
+                Ver exclusivos de:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltros((prev) => ({ ...prev, pestanaActiva: 'GLOBAL' }))
+                  onCambiarPagina(1)
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                  vistaProveedorActual === 'GLOBAL'
+                    ? 'border-violet-600 bg-violet-600 text-white shadow-xs'
+                    : 'border-violet-200 bg-white text-violet-800 hover:bg-violet-100'
+                }`}
+              >
+                <span>Todas las tiendas</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                    vistaProveedorActual === 'GLOBAL'
+                      ? 'bg-white/25 text-white'
+                      : 'bg-violet-100 text-violet-800'
+                  }`}
+                >
+                  {conteosInteligencia.exclusivos}
+                </span>
+              </button>
+              {proveedoresActivos.map((nombre) => {
+                const seleccionado = vistaProveedorActual === nombre
+                const cantidadTienda =
+                  conteosInteligencia.exclusivosPorProveedor[nombre] ?? 0
+                const color = obtenerColorProveedor(
+                  nombre,
+                  mapIndicesProveedores.get(nombre) ?? 0,
+                )
+                return (
+                  <button
+                    key={`excl-${nombre}`}
+                    type="button"
+                    onClick={() => {
+                      setFiltros((prev) => ({
+                        ...prev,
+                        pestanaActiva:
+                          prev.pestanaActiva === nombre ? 'GLOBAL' : nombre,
+                      }))
+                      onCambiarPagina(1)
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                      seleccionado
+                        ? 'border-violet-600 bg-violet-600 text-white shadow-xs'
+                        : 'border-violet-200 bg-white text-slate-700 hover:bg-violet-100'
+                    }`}
+                  >
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: seleccionado ? '#ffffff' : color,
+                      }}
+                    />
+                    <span>Solo en {nombre}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold tabular-nums ${
+                        seleccionado
+                          ? 'bg-white/25 text-white'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {cantidadTienda}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Listado comparador de 4 zonas con CERO scroll horizontal */}
       {cargandoCatalogo && productos.length === 0 ? (
         <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-[12px] text-slate-500">
@@ -1176,6 +1369,11 @@ export function CatalogSection({
               const alertaEvaluada = alertasPorProductoId.get(item.producto_id)
               const cantidadEnCarrito =
                 cantidadesEnCarritoPorProducto?.get(item.producto_id) ?? 0
+
+              const proveedorExclusivo =
+                proveedoresActivos.length >= 2
+                  ? obtenerProveedorExclusivo(item)
+                  : null
 
               const ofertasPresentes = displayedSuppliers
                 .map((nombre) => item.ofertas[nombre])
@@ -1397,6 +1595,15 @@ export function CatalogSection({
                                 {esGanadora && (
                                   <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[9.5px] font-bold uppercase text-white">
                                     Mejor
+                                  </span>
+                                )}
+                                {proveedorExclusivo === oferta.proveedor && (
+                                  <span
+                                    title={`Solo ${oferta.proveedor} tiene este producto en su lista`}
+                                    className="inline-flex shrink-0 items-center gap-1 rounded bg-violet-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase text-violet-800"
+                                  >
+                                    <Sparkles size={9} />
+                                    Exclusivo
                                   </span>
                                 )}
                                 {!oferta.disponible && (
@@ -1819,13 +2026,15 @@ export function CatalogSection({
             <div className="flex flex-col items-center justify-center py-14 text-center">
               <Search size={20} className="mb-2 text-slate-300" />
               <p className="text-[12px] font-medium text-slate-600">
-                {filtroArbitrajeActivo && proveedoresActivos.length < 2
+                {(filtroArbitrajeActivo || filtroExclusivosActivo) &&
+                proveedoresActivos.length < 2
                   ? 'Necesitás al menos 2 proveedores activos'
                   : 'No se encontraron productos'}
               </p>
               <p className="mt-1 text-[11px] text-slate-400">
-                {filtroArbitrajeActivo && proveedoresActivos.length < 2
-                  ? 'Activá más proveedores arriba para comparar diferencias de precio entre listas.'
+                {(filtroArbitrajeActivo || filtroExclusivosActivo) &&
+                proveedoresActivos.length < 2
+                  ? 'Activá más proveedores arriba para comparar diferencias entre listas.'
                   : 'Probá con otra búsqueda o ajustá los filtros.'}
               </p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">

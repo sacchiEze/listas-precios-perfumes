@@ -127,6 +127,7 @@ export type FiltroInteligenciaPrecios =
   | 'BAJARON'
   | 'SUBIERON'
   | 'ARBITRAJE'
+  | 'EXCLUSIVOS'
   | 'SEGUIMIENTO'
   | 'ALERTAS_ACTIVAS'
   | 'FALTA_REPONER'

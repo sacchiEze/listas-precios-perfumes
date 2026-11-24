@@ -179,7 +179,10 @@
 .dashboard-dark .dashboard-card,
 .dashboard-dark .stat-card,
 .dashboard-dark .dashboard-modal,
-.dashboard-dark .dashboard-surface {
+.dashboard-dark .dashboard-surface,
+.dashboard-dark .mobile-topbar,
+.dashboard-dark .mobile-bottom-nav,
+.dashboard-dark .mobile-sheet {
   background-color: #1b1a21;
   border-color: #302e38;
 }
@@ -360,6 +363,14 @@
 
 .dashboard-dark input::placeholder {
   color: #7c778a;
+}
+
+.mobile-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-sheet {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @media (max-width: 1023px) {

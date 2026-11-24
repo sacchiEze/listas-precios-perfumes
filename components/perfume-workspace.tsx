@@ -31,6 +31,7 @@ import {
   GitMerge,
   LayoutDashboard,
   Loader2,
+  Menu,
   Moon,
   Package,
   Pencil,
@@ -204,6 +205,7 @@ export function PerfumeWorkspace() {
     useState<ProductoComparado | null>(null)
   const [modalSugerenciasAbierto, setModalSugerenciasAbierto] = useState(false)
   const [modalFusionIdAbierto, setModalFusionIdAbierto] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const paresDescartadosStore = useDuplicadosDescartadosStore((e) => e.pares)
   const descartarParDuplicado = useDuplicadosDescartadosStore(
     (e) => e.descartarPar,
@@ -441,6 +443,15 @@ export function PerfumeWorkspace() {
   useEffect(() => {
     setHidratado(true)
   }, [])
+
+  useEffect(() => {
+    if (!mobileMenuOpen || typeof window === 'undefined') return
+    const manejarTecla = (evento: KeyboardEvent) => {
+      if (evento.key === 'Escape') setMobileMenuOpen(false)
+    }
+    window.addEventListener('keydown', manejarTecla)
+    return () => window.removeEventListener('keydown', manejarTecla)
+  }, [mobileMenuOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -2167,7 +2178,7 @@ export function PerfumeWorkspace() {
         isDark ? 'dashboard-dark' : ''
       }`}
     >
-      <aside className="dashboard-sidebar flex w-full shrink-0 flex-col border-b border-slate-200 bg-white px-4 py-4 lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
+      <aside className="dashboard-sidebar hidden w-full shrink-0 flex-col border-b border-slate-200 bg-white px-4 py-4 lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[248px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
         <button
           type="button"
           onClick={() => setView('overview')}
@@ -2484,7 +2495,68 @@ export function PerfumeWorkspace() {
       </aside>
 
       <div className="dashboard-main min-w-0 lg:ml-[248px]">
-        <header className="dashboard-topbar flex min-h-[66px] flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6 lg:px-7">
+        {/* Barra superior compacta exclusiva para Mobile (< 1024px) */}
+        <header className="mobile-topbar sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-xs lg:hidden">
+          <button
+            type="button"
+            onClick={() => setView('overview')}
+            className="flex min-w-0 items-center gap-2 text-left"
+            aria-label="PerfumeHub, ir al resumen"
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-extrabold text-green-600 shadow-xs">
+              P
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[14px] font-semibold tracking-tight text-slate-900">
+                <span className="truncate">PerfumeHub</span>
+                <span
+                  className={`size-1.5 shrink-0 rounded-full ${
+                    usandoDemo ? 'bg-amber-500' : 'bg-emerald-500'
+                  }`}
+                />
+              </span>
+            </span>
+          </button>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Editar cotización del dólar y herramientas"
+              className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold tabular-nums text-slate-700"
+            >
+              <span className="text-emerald-600">$</span>
+              <span>{dolarDelDia}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsDark((value) => !value)}
+              aria-label={
+                isDark ? 'Activar modo claro' : 'Activar modo oscuro'
+              }
+              className="icon-button flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+            >
+              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Abrir menú y herramientas"
+              aria-expanded={mobileMenuOpen}
+              className="icon-button relative flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+            >
+              <Menu size={17} />
+              {(sugerenciasFusion.length > 0 ||
+                proveedoresActivos.length < proveedoresDisponibles.length) && (
+                <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-violet-600" />
+              )}
+            </button>
+          </div>
+        </header>
+
+        <header className="dashboard-topbar hidden min-h-[66px] flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6 lg:flex lg:px-7">
           <div className="flex shrink-0 items-center gap-2 text-[12px]">
             <span className="hidden text-slate-400 sm:inline">PerfumeHub</span>
             <span className="hidden text-slate-300 sm:inline">/</span>
@@ -2651,9 +2723,9 @@ export function PerfumeWorkspace() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1600px] px-4 pb-8 pt-5 sm:px-6 lg:px-7">
+        <div className="mx-auto max-w-[1600px] px-3 pb-24 pt-3.5 sm:px-6 sm:pt-5 lg:px-7 lg:pb-8">
           {(mensajeSyncFotos || errorCatalogo) && (
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-[12px] text-violet-800">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5 text-[12px] text-violet-800">
               <span>{errorCatalogo ?? mensajeSyncFotos}</span>
               <button
                 type="button"
@@ -2670,20 +2742,20 @@ export function PerfumeWorkspace() {
           )}
 
           <div
-            className={`flex flex-wrap items-end justify-between gap-4 ${
-              view === 'catalog' ? 'mb-4' : 'mb-7'
+            className={`flex flex-wrap items-end justify-between gap-3 ${
+              view === 'catalog' ? 'mb-3 lg:mb-4' : 'mb-5 lg:mb-7'
             }`}
           >
             <div>
-              <p className="mb-1.5 text-[11px] font-medium text-slate-400">
+              <p className="mb-1 hidden text-[11px] font-medium text-slate-400 sm:block">
                 {fechaCabecera}
               </p>
-              <h1 className="text-[26px] font-semibold tracking-[-.045em] text-slate-900 sm:text-[30px]">
+              <h1 className="text-[22px] font-semibold tracking-[-.04em] text-slate-900 sm:text-[30px]">
                 {view === 'overview'
                   ? 'Resumen de compras'
                   : navItems.find((item) => item.id === view)?.label}
               </h1>
-              <p className="mt-1.5 text-[13px] text-slate-500">
+              <p className="mt-0.5 text-[12px] text-slate-500 sm:mt-1.5 sm:text-[13px]">
                 {view === 'overview'
                   ? 'Una vista clara de tus precios mayoristas y proveedores.'
                   : view === 'catalog'
@@ -2701,7 +2773,7 @@ export function PerfumeWorkspace() {
                   setView('catalog')
                   setFiltersOpen(true)
                 }}
-                className="primary-action inline-flex items-center gap-2 rounded-lg bg-[#34294d] px-3.5 py-2.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#45365f]"
+                className="primary-action hidden items-center gap-2 rounded-lg bg-[#34294d] px-3.5 py-2.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#45365f] lg:inline-flex"
               >
                 <Filter size={14} />
                 <span>Filtrar catálogo</span>
@@ -2709,45 +2781,92 @@ export function PerfumeWorkspace() {
             )}
           </div>
 
+          {/* Tira rápida horizontal de subcategorías en Catálogo Mobile */}
+          {view === 'catalog' && (
+            <div
+              role="navigation"
+              aria-label="Subcategorías del catálogo"
+              className="scrollbar-none -mx-3 mb-3 flex gap-1.5 overflow-x-auto px-3 lg:hidden"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setFiltros((prev) => ({ ...prev, tiposSeleccionados: [] }))
+                }
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                  filtros.tiposSeleccionados.length === 0
+                    ? 'border-violet-300 bg-[#34294d] text-white'
+                    : 'border-slate-200 bg-white text-slate-600'
+                }`}
+              >
+                Todos
+              </button>
+              {SUBRAMAS_CATALOGO.map((sub) => {
+                const activoSub =
+                  filtros.tiposSeleccionados.length === sub.tipos.length &&
+                  sub.tipos.every((t) => filtros.tiposSeleccionados.includes(t))
+                return (
+                  <button
+                    type="button"
+                    key={`mob-${sub.id}`}
+                    onClick={() =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        tiposSeleccionados: [...sub.tipos],
+                      }))
+                    }
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+                      activoSub
+                        ? 'border-violet-300 bg-[#34294d] text-white font-semibold'
+                        : 'border-slate-200 bg-white text-slate-600'
+                    }`}
+                  >
+                    {sub.etiqueta}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {view === 'overview' && (
             <>
               <section
                 aria-label="Indicadores principales"
-                className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+                className="mb-5 grid grid-cols-2 gap-2.5 sm:mb-6 sm:gap-3 lg:grid-cols-3 xl:grid-cols-5"
               >
-                <article className="stat-card rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-slate-500">
+                <article className="stat-card rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+                  <div className="mb-2.5 flex items-center justify-between sm:mb-4">
+                    <span className="text-[11px] font-medium text-slate-500 sm:text-[12px]">
                       Productos en catálogo
                     </span>
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
-                      <Package size={16} />
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 sm:size-8">
+                      <Package size={15} />
                     </span>
                   </div>
-                  <div className="flex items-end justify-between">
-                    <strong className="text-[25px] font-semibold tracking-[-.04em] text-slate-900">
+                  <div className="flex flex-wrap items-end justify-between gap-1">
+                    <strong className="text-[20px] font-semibold tracking-[-.04em] text-slate-900 sm:text-[25px]">
                       {totalSinFiltrar}
                     </strong>
-                    <span className="pb-1 text-[10px] font-medium text-emerald-600">
+                    <span className="pb-0.5 text-[10px] font-medium text-emerald-600 sm:pb-1">
                       {marcasDisponibles.length} marcas
                     </span>
                   </div>
                 </article>
 
-                <article className="stat-card rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-slate-500">
+                <article className="stat-card rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+                  <div className="mb-2.5 flex items-center justify-between sm:mb-4">
+                    <span className="text-[11px] font-medium text-slate-500 sm:text-[12px]">
                       Proveedores activos
                     </span>
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                      <Users size={16} />
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 sm:size-8">
+                      <Users size={15} />
                     </span>
                   </div>
-                  <div className="flex items-end justify-between">
-                    <strong className="text-[25px] font-semibold tracking-[-.04em] text-slate-900">
+                  <div className="flex flex-wrap items-end justify-between gap-1">
+                    <strong className="text-[20px] font-semibold tracking-[-.04em] text-slate-900 sm:text-[25px]">
                       {proveedoresActivos.length}
                     </strong>
-                    <span className="pb-1 text-[10px] font-medium text-slate-400">
+                    <span className="pb-0.5 text-[10px] font-medium text-slate-400 sm:pb-1">
                       {proveedoresActivos.length < proveedoresDisponibles.length
                         ? `de ${proveedoresDisponibles.length} listas`
                         : 'Listas conectadas'}
@@ -2755,36 +2874,36 @@ export function PerfumeWorkspace() {
                   </div>
                 </article>
 
-                <article className="stat-card rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-slate-500">
+                <article className="stat-card rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+                  <div className="mb-2.5 flex items-center justify-between sm:mb-4">
+                    <span className="text-[11px] font-medium text-slate-500 sm:text-[12px]">
                       Ofertas disponibles
                     </span>
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                      <Activity size={16} />
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 sm:size-8">
+                      <Activity size={15} />
                     </span>
                   </div>
-                  <div className="flex items-end justify-between">
-                    <strong className="text-[25px] font-semibold tracking-[-.04em] text-slate-900">
+                  <div className="flex flex-wrap items-end justify-between gap-1">
+                    <strong className="text-[20px] font-semibold tracking-[-.04em] text-slate-900 sm:text-[25px]">
                       {metricasGlobales.ofertasDisponiblesCount}
                     </strong>
-                    <span className="pb-1 text-[10px] font-medium text-emerald-600">
+                    <span className="pb-0.5 text-[10px] font-medium text-emerald-600 sm:pb-1">
                       {metricasGlobales.porcentajeConStock}% con stock
                     </span>
                   </div>
                 </article>
 
-                <article className="stat-card rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-slate-500">
+                <article className="stat-card rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+                  <div className="mb-2.5 flex items-center justify-between sm:mb-4">
+                    <span className="text-[11px] font-medium text-slate-500 sm:text-[12px]">
                       Mejor precio desde
                     </span>
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                      <Wallet size={16} />
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 sm:size-8">
+                      <Wallet size={15} />
                     </span>
                   </div>
-                  <div className="flex items-end justify-between">
-                    <strong className="text-[25px] font-semibold tracking-[-.04em] text-slate-900">
+                  <div className="flex flex-wrap items-end justify-between gap-1">
+                    <strong className="whitespace-nowrap text-[18px] font-semibold tabular-nums tracking-[-.04em] text-slate-900 sm:text-[25px]">
                       {mejorPrecioGlobalMostrado !== null
                         ? formatearMoneda(
                             mejorPrecioGlobalMostrado,
@@ -2792,7 +2911,7 @@ export function PerfumeWorkspace() {
                           )
                         : '—'}
                     </strong>
-                    <span className="pb-1 text-[10px] font-medium text-slate-400">
+                    <span className="pb-0.5 text-[10px] font-medium text-slate-400 sm:pb-1">
                       por unidad
                     </span>
                   </div>
@@ -2810,25 +2929,25 @@ export function PerfumeWorkspace() {
                     }))
                     setView('catalog')
                   }}
-                  className="stat-card rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-violet-300"
+                  className="stat-card col-span-2 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-violet-300 sm:p-4 lg:col-span-1"
                 >
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-slate-500">
+                  <div className="mb-2.5 flex items-center justify-between sm:mb-4">
+                    <span className="text-[11px] font-medium text-slate-500 sm:text-[12px]">
                       Inteligencia y alertas
                     </span>
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 sm:size-8">
                       {metricasGlobales.conteosInteligencia.alertasActivas > 0 ? (
-                        <BellRing size={16} />
+                        <BellRing size={15} />
                       ) : (
-                        <Zap size={16} />
+                        <Zap size={15} />
                       )}
                     </span>
                   </div>
                   <div className="flex items-end justify-between gap-2">
-                    <strong className="text-[25px] font-semibold tracking-[-.04em] text-slate-900">
+                    <strong className="text-[20px] font-semibold tracking-[-.04em] text-slate-900 sm:text-[25px]">
                       {metricasGlobales.conteosInteligencia.bajaron}
                     </strong>
-                    <span className="pb-1 text-right text-[10px] font-medium text-emerald-600">
+                    <span className="pb-0.5 text-right text-[10px] font-medium text-emerald-600 sm:pb-1">
                       bajas · {metricasGlobales.conteosInteligencia.alertasActivas}{' '}
                       alertas
                     </span>
@@ -3789,9 +3908,9 @@ export function PerfumeWorkspace() {
                     {/* KPI Cards: Piso Histórico, Techo Histórico y Mejor Precio Actual */}
                     <section
                       aria-label="Piso y techo histórico de precio"
-                      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                      className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3"
                     >
-                      <article className="dashboard-card rounded-xl border border-slate-200 bg-white p-4">
+                      <article className="dashboard-card rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
                             Piso histórico
@@ -3857,7 +3976,7 @@ export function PerfumeWorkspace() {
                         )}
                       </article>
 
-                      <article className="dashboard-card rounded-xl border border-slate-200 bg-white p-4">
+                      <article className="dashboard-card col-span-2 rounded-xl border border-slate-200 bg-white p-3 sm:col-span-1 sm:p-4">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
                             Mejor precio hoy
@@ -4316,92 +4435,96 @@ export function PerfumeWorkspace() {
                               return (
                                 <div
                                   key={`${item.productoId}-${item.proveedor}`}
-                                  className="flex flex-wrap items-center gap-3 py-3 sm:flex-nowrap"
+                                  className="flex flex-col gap-2.5 py-3 sm:flex-row sm:items-center sm:gap-3"
                                 >
-                                  <ImagenFrasco
-                                    src={item.imagenUrl}
-                                    alt={`${item.marca} ${item.nombre}`}
-                                    className="size-11 shrink-0 rounded-lg"
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[12px] font-medium text-slate-800">
-                                      {item.marca} {item.nombre}
-                                    </p>
-                                    <p className="mt-0.5 text-[10px] text-slate-400">
+                                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                                    <ImagenFrasco
+                                      src={item.imagenUrl}
+                                      alt={`${item.marca} ${item.nombre}`}
+                                      className="size-11 shrink-0 rounded-lg"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="line-clamp-2 text-[12px] font-medium text-slate-800 sm:truncate">
+                                        {item.marca} {item.nombre}
+                                      </p>
+                                      <p className="mt-0.5 text-[10px] text-slate-400">
+                                        {formatearMoneda(
+                                          item.precioUnitarioAplicado,
+                                          item.moneda,
+                                        )}{' '}
+                                        c/u ({item.escalaItem})
+                                      </p>
+                                      <p className="mt-0.5 text-[10px] font-medium text-emerald-700">
+                                        PVP{rentItem.esPrecioManual ? ' manual' : ' sug'}:{' '}
+                                        {formatearMoneda(
+                                          pvpUnitMostrado,
+                                          monedaVisualizacion,
+                                        )}{' '}
+                                        · Ganancia neta:{' '}
+                                        +
+                                        {formatearMoneda(
+                                          gananciaTotalItemMostrada,
+                                          monedaVisualizacion,
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-3 pl-14 sm:shrink-0 sm:justify-end sm:pl-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        aria-label={`Quitar una unidad de ${item.nombre}`}
+                                        onClick={() =>
+                                          incrementarCantidad(
+                                            item.productoId,
+                                            item.proveedor,
+                                            -1,
+                                          )
+                                        }
+                                        className="qty-button flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:bg-slate-50 sm:size-7"
+                                      >
+                                        −
+                                      </button>
+                                      <span className="w-6 text-center text-[12px] font-medium text-slate-800">
+                                        {item.cantidad}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        aria-label={`Agregar una unidad de ${item.nombre}`}
+                                        onClick={() =>
+                                          incrementarCantidad(
+                                            item.productoId,
+                                            item.proveedor,
+                                            1,
+                                          )
+                                        }
+                                        className="qty-button flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:bg-slate-50 sm:size-7"
+                                      >
+                                        +
+                                      </button>
+                                      <button
+                                        type="button"
+                                        aria-label={`Eliminar ${item.nombre}`}
+                                        onClick={() =>
+                                          quitarItem(
+                                            item.productoId,
+                                            item.proveedor,
+                                          )
+                                        }
+                                        className="ml-1 rounded-md p-1.5 text-slate-400 transition hover:text-rose-600 sm:p-1"
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    </div>
+
+                                    <strong className="text-right text-[12px] font-semibold tabular-nums text-slate-800 sm:w-24">
                                       {formatearMoneda(
-                                        item.precioUnitarioAplicado,
+                                        item.subtotalOrigen,
                                         item.moneda,
-                                      )}{' '}
-                                      c/u ({item.escalaItem})
-                                    </p>
-                                    <p className="mt-0.5 text-[10px] font-medium text-emerald-700">
-                                      PVP{rentItem.esPrecioManual ? ' manual' : ' sug'}:{' '}
-                                      {formatearMoneda(
-                                        pvpUnitMostrado,
-                                        monedaVisualizacion,
-                                      )}{' '}
-                                      · Ganancia neta:{' '}
-                                      +
-                                      {formatearMoneda(
-                                        gananciaTotalItemMostrada,
-                                        monedaVisualizacion,
                                       )}
-                                    </p>
+                                    </strong>
                                   </div>
-
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      aria-label={`Quitar una unidad de ${item.nombre}`}
-                                      onClick={() =>
-                                        incrementarCantidad(
-                                          item.productoId,
-                                          item.proveedor,
-                                          -1,
-                                        )
-                                      }
-                                      className="qty-button flex size-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:bg-slate-50"
-                                    >
-                                      −
-                                    </button>
-                                    <span className="w-6 text-center text-[12px] font-medium text-slate-800">
-                                      {item.cantidad}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      aria-label={`Agregar una unidad de ${item.nombre}`}
-                                      onClick={() =>
-                                        incrementarCantidad(
-                                          item.productoId,
-                                          item.proveedor,
-                                          1,
-                                        )
-                                      }
-                                      className="qty-button flex size-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:bg-slate-50"
-                                    >
-                                      +
-                                    </button>
-                                    <button
-                                      type="button"
-                                      aria-label={`Eliminar ${item.nombre}`}
-                                      onClick={() =>
-                                        quitarItem(
-                                          item.productoId,
-                                          item.proveedor,
-                                        )
-                                      }
-                                      className="ml-1 rounded-md p-1 text-slate-400 transition hover:text-rose-600"
-                                    >
-                                      <X size={14} />
-                                    </button>
-                                  </div>
-
-                                  <strong className="w-24 text-right text-[12px] font-semibold text-slate-800">
-                                    {formatearMoneda(
-                                      item.subtotalOrigen,
-                                      item.moneda,
-                                    )}
-                                  </strong>
                                 </div>
                               )
                             })}
@@ -4429,7 +4552,7 @@ export function PerfumeWorkspace() {
                               onClick={() =>
                                 void copiarMensajeProveedor(resumen.proveedor)
                               }
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+                              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto sm:py-2"
                             >
                               {copiadoEste ? (
                                 <Check size={13} className="text-emerald-600" />
@@ -4562,7 +4685,7 @@ export function PerfumeWorkspace() {
                     <button
                       type="button"
                       onClick={() => void copiarTodosLosPedidos()}
-                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-[11px] font-semibold text-white transition hover:bg-emerald-800"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-[12px] font-semibold text-white transition hover:bg-emerald-800 sm:w-auto sm:py-2.5 sm:text-[11px]"
                     >
                       {proveedorCopiado === 'TODOS' ? (
                         <Check size={14} />
@@ -4705,6 +4828,393 @@ export function PerfumeWorkspace() {
           onFusionar={manejarFusionarPerfumes}
           onCerrar={() => setProductoFusionManual(null)}
         />
+      )}
+
+      {/* Barra de navegación inferior fija exclusiva para Mobile (< 1024px) */}
+      <nav
+        aria-label="Navegación inferior móvil"
+        className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur-xs lg:hidden"
+      >
+        <div className="grid grid-cols-4">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const activo = view === item.id
+            const etiquetaCorta =
+              item.id === 'overview'
+                ? 'Resumen'
+                : item.id === 'catalog'
+                  ? 'Catálogo'
+                  : item.id === 'history'
+                    ? 'Historial'
+                    : 'Carrito'
+            return (
+              <button
+                key={`mob-nav-${item.id}`}
+                type="button"
+                onClick={() => {
+                  if (item.id === 'catalog' && view === 'catalog') {
+                    setFiltros((prev) => ({ ...prev, tiposSeleccionados: [] }))
+                  }
+                  setView(item.id)
+                }}
+                aria-current={activo ? 'page' : undefined}
+                className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] transition ${
+                  activo
+                    ? 'font-semibold text-violet-700'
+                    : 'font-medium text-slate-500'
+                }`}
+              >
+                {activo && (
+                  <span className="absolute top-0 h-0.5 w-8 rounded-full bg-violet-600" />
+                )}
+                <span className="relative">
+                  <Icon size={19} strokeWidth={activo ? 2.2 : 1.8} />
+                  {item.count ? (
+                    <span className="absolute -right-2.5 -top-1.5 flex min-w-[16px] items-center justify-center rounded-full bg-violet-600 px-1 py-0.2 text-[9px] font-bold tabular-nums text-white">
+                      {item.count}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="truncate">{etiquetaCorta}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+
+      {/* Drawer lateral Mobile de Herramientas, Dólar y Proveedores (< 1024px) */}
+      {mobileMenuOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menú y herramientas móviles"
+          className="fixed inset-0 z-50 flex justify-end bg-black/50 lg:hidden"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setMobileMenuOpen(false)
+          }}
+        >
+          <div className="mobile-sheet flex h-full w-[88vw] max-w-[340px] flex-col overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-xl">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-extrabold text-green-600">
+                  P
+                </span>
+                <div>
+                  <p className="text-[13px] font-semibold text-slate-900">
+                    PerfumeHub
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    {usandoDemo ? 'Modo Demo' : 'Supabase en vivo'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Cerrar menú"
+                className="flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Cotización del dólar */}
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Cotización del dólar
+              </p>
+              <div className="flex items-center gap-1.5">
+                <select
+                  aria-label="Fuente de cotización del dólar móvil"
+                  value={tipoDolarActivo}
+                  onChange={(event) =>
+                    manejarCambiarTipoDolar(
+                      event.target.value as TipoCotizacionDolar,
+                    )
+                  }
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none"
+                >
+                  <option value="manual">Manual</option>
+                  <option value="blue">Blue</option>
+                  <option value="mep">MEP</option>
+                  <option value="oficial">Oficial</option>
+                </select>
+                <input
+                  aria-label="Cotización del dólar móvil"
+                  type="number"
+                  min="1"
+                  value={dolarDelDia}
+                  onChange={(event) => {
+                    const valor = Number(event.target.value)
+                    if (valor > 0) setDolarDelDia(valor)
+                  }}
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-right text-base font-semibold text-slate-800 outline-none sm:text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => void sincronizarDolarAutomatico()}
+                  disabled={actualizandoDolar}
+                  aria-label="Actualizar dólar automático"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-50"
+                >
+                  <RefreshCw
+                    size={15}
+                    className={
+                      actualizandoDolar ? 'animate-spin text-emerald-600' : ''
+                    }
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Proveedores en comparación */}
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Proveedores en comparación
+                </span>
+                {proveedoresActivos.length < proveedoresDisponibles.length && (
+                  <button
+                    type="button"
+                    onClick={activarTodosLosProveedores}
+                    className="text-[11px] font-semibold text-violet-700 hover:underline"
+                  >
+                    Activar todos
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {proveedoresDisponibles.map((nombre, indice) => {
+                  const estaActivo = !proveedoresDesactivadosSet.has(nombre)
+                  const esUnicoActivo =
+                    estaActivo && proveedoresActivos.length <= 1
+                  return (
+                    <div
+                      key={`mob-prov-${nombre}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`size-2.5 shrink-0 rounded-full ${
+                            estaActivo ? '' : 'opacity-40'
+                          }`}
+                          style={{
+                            backgroundColor: obtenerColorProveedor(
+                              nombre,
+                              indice,
+                            ),
+                          }}
+                        />
+                        <span
+                          className={`truncate text-xs font-medium ${
+                            estaActivo
+                              ? 'text-slate-800'
+                              : 'text-slate-400 line-through'
+                          }`}
+                        >
+                          {nombre}
+                        </span>
+                        <span className="text-[10px] tabular-nums text-slate-400">
+                          {conteoStockTotalPorProveedor[nombre] ?? 0}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={estaActivo}
+                        aria-label={
+                          estaActivo
+                            ? `Desactivar ${nombre} en menú móvil`
+                            : `Activar ${nombre} en menú móvil`
+                        }
+                        disabled={esUnicoActivo}
+                        onClick={() => manejarAlternarProveedor(nombre)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition ${
+                          estaActivo
+                            ? 'border-violet-600 bg-violet-600'
+                            : 'border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700'
+                        } ${esUnicoActivo ? 'cursor-not-allowed opacity-50' : ''}`}
+                      >
+                        <span
+                          style={{ backgroundColor: '#ffffff' }}
+                          className={`inline-block size-3.5 rounded-full shadow-xs transition-transform ${
+                            estaActivo ? 'translate-x-4' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Subcategorías */}
+            <div className="mb-4">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Subcategorías
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltros((prev) => ({ ...prev, tiposSeleccionados: [] }))
+                    setView('catalog')
+                    setMobileMenuOpen(false)
+                  }}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                    view === 'catalog' && filtros.tiposSeleccionados.length === 0
+                      ? 'border-violet-300 bg-[#34294d] text-white'
+                      : 'border-slate-200 bg-white text-slate-600'
+                  }`}
+                >
+                  Todos
+                </button>
+                {SUBRAMAS_CATALOGO.map((sub) => {
+                  const activoSub =
+                    view === 'catalog' &&
+                    filtros.tiposSeleccionados.length === sub.tipos.length &&
+                    sub.tipos.every((t) =>
+                      filtros.tiposSeleccionados.includes(t),
+                    )
+                  return (
+                    <button
+                      type="button"
+                      key={`drawer-sub-${sub.id}`}
+                      onClick={() => {
+                        setFiltros((prev) => ({
+                          ...prev,
+                          tiposSeleccionados: [...sub.tipos],
+                        }))
+                        setView('catalog')
+                        setMobileMenuOpen(false)
+                      }}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                        activoSub
+                          ? 'border-violet-300 bg-[#34294d] text-white'
+                          : 'border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
+                      {sub.etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Herramientas mayoristas */}
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Herramientas mayoristas
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setModalCostoAbierto(true)
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700"
+                >
+                  <Wallet size={14} className="shrink-0 text-violet-600" />
+                  <span>Calcular costo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setModalRentabilidadAbierto(true)
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-left text-[11px] font-semibold text-violet-700"
+                >
+                  <Calculator size={14} className="shrink-0" />
+                  <span>Reventa +{configRentabilidad.margenGeneralPorcentaje}%</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setModalImportadorAbierto(true)
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700"
+                >
+                  <Upload size={14} className="shrink-0 text-violet-600" />
+                  <span>Importar lista</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    abrirEditorMarcas()
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700"
+                >
+                  <Tags size={14} className="shrink-0 text-violet-600" />
+                  <span>Marcas ({resumenMarcasEditables.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setModalFusionIdAbierto(true)
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700"
+                >
+                  <GitMerge size={14} className="shrink-0 text-violet-600" />
+                  <span>Fusionar por ID</span>
+                </button>
+
+                {sugerenciasFusion.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      setModalSugerenciasAbierto(true)
+                    }}
+                    className="flex min-h-[44px] items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-left text-[11px] font-semibold text-violet-700"
+                  >
+                    <GitMerge size={14} className="shrink-0" />
+                    <span>Duplicados ({sugerenciasFusion.length})</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={sincronizandoFotos}
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    void manejarSincronizarFotos()
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700 disabled:opacity-50"
+                >
+                  <Sparkles size={14} className="shrink-0 text-violet-600" />
+                  <span>Sincronizar fotos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    void cargarCatalogo()
+                  }}
+                  className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700"
+                >
+                  <RefreshCw
+                    size={14}
+                    className={`shrink-0 text-violet-600 ${
+                      cargandoCatalogo ? 'animate-spin' : ''
+                    }`}
+                  />
+                  <span>Recargar datos</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {modalSugerenciasAbierto && (

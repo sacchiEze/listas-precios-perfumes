@@ -1244,7 +1244,7 @@ export function MiniaturaPerfumeEditable({
         aria-expanded={menuAbierto}
         title="Click para subir, recortar o cambiar imagen"
         onClick={alternarMenu}
-        className="group/img relative size-full overflow-hidden rounded-lg border border-slate-200/80 bg-white p-0 focus:outline-none"
+        className="group/img relative size-full overflow-hidden rounded-xl border border-slate-200/80 bg-white p-0 focus:outline-none"
         style={{ backgroundColor: '#ffffff' }}
       >
         <img

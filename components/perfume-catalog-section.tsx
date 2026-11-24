@@ -362,8 +362,8 @@ export function CatalogSection({
       )}
 
       {/* Fila 1: Buscador, ordenamiento, toggle de filtros y densidad */}
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-slate-100 px-4 py-3 sm:px-5">
-        <label className="relative min-w-[210px] flex-1">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-3 sm:gap-2.5 sm:px-5">
+        <label className="relative w-full sm:min-w-[210px] sm:flex-1">
           <Search
             size={15}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -374,7 +374,7 @@ export function CatalogSection({
               setFiltros((prev) => ({ ...prev, busqueda: event.target.value }))
             }
             placeholder="Buscar perfume, marca, ml o EAN6..."
-            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-24 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-24 text-base text-slate-800 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 sm:h-9 sm:text-xs"
           />
           <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
             {filtros.busqueda && (
@@ -402,7 +402,7 @@ export function CatalogSection({
               ordenarPor: event.target.value as CriterioOrdenamiento,
             }))
           }
-          className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-600 outline-none"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 outline-none sm:h-9 sm:flex-none sm:text-[11px]"
         >
           {OPCIONES_ORDENAMIENTO.map((opcion) => (
             <option key={opcion.valor} value={opcion.valor}>
@@ -415,7 +415,7 @@ export function CatalogSection({
           type="button"
           onClick={() => setFiltersOpen(!filtersOpen)}
           aria-expanded={filtersOpen}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-semibold transition ${
+          className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition sm:h-9 sm:text-[11px] ${
             filtersOpen
               ? 'border-violet-200 bg-violet-50 text-violet-800'
               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -435,8 +435,8 @@ export function CatalogSection({
         </button>
 
         {!maxRows && !onAll && (
-          <div className="flex items-center gap-1.5">
-            <span className="hidden text-[11px] font-medium text-slate-400 sm:inline">
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <span className="text-[11px] font-medium text-slate-400">
               Por pág:
             </span>
             <div
@@ -464,8 +464,8 @@ export function CatalogSection({
       </div>
 
       {/* Fila 2: Vistas rápidas de inteligencia + Control unificado de proveedores */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:gap-2.5 sm:px-5">
+        <div className="scrollbar-none flex w-full flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
           {pildorasInteligencia.map((pildora) => {
             const activo = filtros.filtroInteligencia === pildora.id
             if (pildora.esArbitraje) {
@@ -550,9 +550,9 @@ export function CatalogSection({
           <div
             role="group"
             aria-label="Activar o desactivar proveedores en la comparación"
-            className="flex flex-wrap items-center gap-1.5"
+            className="scrollbar-none flex w-full flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0"
           >
-            <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="mr-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
               Comparar
             </span>
 
@@ -584,7 +584,7 @@ export function CatalogSection({
                   }
                   disabled={esUnicoActivo}
                   onClick={() => onAlternarProveedor(nombre)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                     activo
                       ? 'border-violet-200 bg-violet-50 text-slate-800 hover:bg-slate-50'
                       : 'border-dashed border-slate-200 bg-white text-slate-400 hover:text-slate-600'
@@ -612,13 +612,13 @@ export function CatalogSection({
 
             {hayProveedoresDesactivados && (
               <>
-                <span className="text-[10px] font-medium text-slate-400">
+                <span className="shrink-0 text-[10px] font-medium text-slate-400">
                   {proveedoresActivos.length}/{proveedoresDisponibles.length}
                 </span>
                 <button
                   type="button"
                   onClick={onActivarTodosLosProveedores}
-                  className="rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 transition hover:bg-slate-50"
+                  className="shrink-0 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 transition hover:bg-slate-50"
                 >
                   Activar todos
                 </button>
@@ -634,7 +634,7 @@ export function CatalogSection({
                   pestanaActiva: event.target.value,
                 }))
               }
-              className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 outline-none"
+              className="h-7 shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 outline-none"
             >
               <option value="GLOBAL">
                 {hayProveedoresDesactivados
@@ -653,7 +653,7 @@ export function CatalogSection({
 
       {/* Tira de filtros activos (siempre visible cuando hay algún filtro seleccionado) */}
       {hayFiltrosChipsActivos && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 bg-white px-4 py-2 sm:px-5">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 bg-white px-3 py-2 sm:px-5">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Activos:
           </span>
@@ -754,298 +754,350 @@ export function CatalogSection({
         </div>
       )}
 
-      {/* Panel desplegable de Filtros (3 columnas compactas y balanceadas) */}
+      {/* Panel desplegable de Filtros: Bottom Sheet en mobile (< lg), 3 columnas inline en desktop (lg:) */}
       {filtersOpen && (
-        <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.25fr)]">
-            {/* Columna 1: Clasificación */}
-            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
-              <fieldset className="min-w-0">
-                <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Categoría
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
-                    <button
-                      type="button"
-                      key={etiqueta}
-                      onClick={() =>
-                        setFiltros((prev) => ({ ...prev, categoria: valor }))
-                      }
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
-                        filtros.categoria === valor
-                          ? 'bg-[#34294d] text-white'
-                          : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
-                      }`}
-                    >
-                      {etiqueta}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-
-              <fieldset className="min-w-0 border-t border-slate-100 pt-3">
-                <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Género
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
-                    <button
-                      type="button"
-                      key={etiqueta}
-                      onClick={() =>
-                        setFiltros((prev) => ({ ...prev, genero: valor }))
-                      }
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
-                        filtros.genero === valor
-                          ? 'bg-[#34294d] text-white'
-                          : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
-                      }`}
-                    >
-                      {etiqueta}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            </div>
-
-            {/* Columna 2: Precio y Stock */}
-            <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
-              <div className="flex flex-col gap-3">
-                <fieldset className="min-w-0">
-                  <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    Precio ({monedaVisualizacion})
-                  </legend>
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                    <input
-                      aria-label="Precio mínimo"
-                      type="number"
-                      min="0"
-                      value={precioMinInput}
-                      onChange={(event) => setPrecioMinInput(event.target.value)}
-                      placeholder="Mínimo"
-                      className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-700 outline-none focus:border-violet-400"
-                    />
-                    <span className="text-xs text-slate-400">–</span>
-                    <input
-                      aria-label="Precio máximo"
-                      type="number"
-                      min="0"
-                      value={precioMaxInput}
-                      onChange={(event) => setPrecioMaxInput(event.target.value)}
-                      placeholder="Máximo"
-                      className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-700 outline-none focus:border-violet-400"
-                    />
-                  </div>
-                </fieldset>
-
-                <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-700">
-                  <span>Solo con stock disponible</span>
-                  <input
-                    type="checkbox"
-                    checked={filtros.soloEnStock}
-                    onChange={(event) =>
-                      setFiltros((prev) => ({
-                        ...prev,
-                        soloEnStock: event.target.checked,
-                      }))
-                    }
-                    className="size-3.5 accent-violet-700"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
-                <button
-                  type="button"
-                  onClick={() => onEditarMarca('')}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Tags size={12} className="text-violet-600" />
-                  Editar marcas
-                </button>
-                <button
-                  type="button"
-                  onClick={onLimpiarFiltros}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
-                >
-                  <X size={12} />
-                  Limpiar filtros
-                </button>
-              </div>
-            </div>
-
-            {/* Columna 3: Marcas */}
-            {marcasDisponibles.length > 0 && (
-              <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-3.5 md:col-span-2 xl:col-span-1">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      Marcas ({marcasDisponibles.length})
+        <div
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setFiltersOpen(false)
+            }
+          }}
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 lg:static lg:z-auto lg:block lg:bg-transparent"
+        >
+          <div className="mobile-sheet flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-slate-200 bg-white lg:block lg:max-h-none lg:rounded-none lg:border-b lg:border-t-0 lg:border-slate-100 lg:bg-slate-50/70">
+            {/* Cabecera del Bottom Sheet solo en mobile */}
+            <div className="flex shrink-0 flex-col border-b border-slate-100 px-4 pb-3 pt-2 lg:hidden">
+              <div className="mx-auto mb-2.5 h-1 w-10 rounded-full bg-slate-300" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">Filtros</h3>
+                  {cantidadFiltrosActivos > 0 && (
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                      {cantidadFiltrosActivos} activos
                     </span>
-                    {filtros.marcasSeleccionadas.length > 0 && (
-                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
-                        {filtros.marcasSeleccionadas.length} visibles
-                      </span>
-                    )}
-                    {marcasOcultas.length > 0 && (
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
-                        {marcasOcultas.length} ocultas
-                      </span>
-                    )}
-                  </div>
-                  {(filtros.marcasSeleccionadas.length > 0 ||
-                    marcasOcultas.length > 0) && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFiltros((prev) => ({
-                          ...prev,
-                          marcasSeleccionadas: [],
-                          marcasOcultas: [],
-                        }))
-                      }
-                      className="text-[11px] font-semibold text-violet-700 hover:underline"
-                    >
-                      Mostrar todas
-                    </button>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  aria-label="Cerrar filtros"
+                  className="flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
 
-                <label className="relative mt-2 block">
-                  <Search
-                    size={13}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="text"
-                    aria-label="Buscar marca en filtros"
-                    value={busquedaMarcaFiltro}
-                    onChange={(event) =>
-                      setBusquedaMarcaFiltro(event.target.value)
-                    }
-                    placeholder="Buscar marca en la lista..."
-                    className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-8 text-[11px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                  />
-                  {busquedaMarcaFiltro && (
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 lg:flex-none lg:overflow-visible">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.25fr)]">
+                {/* Columna 1: Clasificación */}
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+                  <fieldset className="min-w-0">
+                    <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Categoría
+                    </legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CATEGORIAS_FILTRO.map(({ etiqueta, valor }) => (
+                        <button
+                          type="button"
+                          key={etiqueta}
+                          onClick={() =>
+                            setFiltros((prev) => ({ ...prev, categoria: valor }))
+                          }
+                          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                            filtros.categoria === valor
+                              ? 'bg-[#34294d] text-white'
+                              : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
+                          }`}
+                        >
+                          {etiqueta}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <fieldset className="min-w-0 border-t border-slate-100 pt-3">
+                    <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Género
+                    </legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {GENEROS_FILTRO.map(({ etiqueta, valor }) => (
+                        <button
+                          type="button"
+                          key={etiqueta}
+                          onClick={() =>
+                            setFiltros((prev) => ({ ...prev, genero: valor }))
+                          }
+                          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                            filtros.genero === valor
+                              ? 'bg-[#34294d] text-white'
+                              : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
+                          }`}
+                        >
+                          {etiqueta}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+
+                {/* Columna 2: Precio y Stock */}
+                <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+                  <div className="flex flex-col gap-3">
+                    <fieldset className="min-w-0">
+                      <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        Precio ({monedaVisualizacion})
+                      </legend>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                        <input
+                          aria-label="Precio mínimo"
+                          type="number"
+                          min="0"
+                          value={precioMinInput}
+                          onChange={(event) => setPrecioMinInput(event.target.value)}
+                          placeholder="Mínimo"
+                          className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-base text-slate-700 outline-none focus:border-violet-400 sm:h-8 sm:text-xs"
+                        />
+                        <span className="text-xs text-slate-400">–</span>
+                        <input
+                          aria-label="Precio máximo"
+                          type="number"
+                          min="0"
+                          value={precioMaxInput}
+                          onChange={(event) => setPrecioMaxInput(event.target.value)}
+                          placeholder="Máximo"
+                          className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-base text-slate-700 outline-none focus:border-violet-400 sm:h-8 sm:text-xs"
+                        />
+                      </div>
+                    </fieldset>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-700">
+                      <span>Solo con stock disponible</span>
+                      <input
+                        type="checkbox"
+                        checked={filtros.soloEnStock}
+                        onChange={(event) =>
+                          setFiltros((prev) => ({
+                            ...prev,
+                            soloEnStock: event.target.checked,
+                          }))
+                        }
+                        className="size-3.5 accent-violet-700"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
                     <button
                       type="button"
-                      onClick={() => setBusquedaMarcaFiltro('')}
-                      aria-label="Limpiar búsqueda de marca"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700"
+                      onClick={() => onEditarMarca('')}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <Tags size={12} className="text-violet-600" />
+                      Editar marcas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onLimpiarFiltros}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
                     >
                       <X size={12} />
+                      Limpiar filtros
                     </button>
-                  )}
-                </label>
+                  </div>
+                </div>
 
-                <div
-                  role="list"
-                  aria-label="Lista de marcas"
-                  className="mt-2 flex h-[176px] flex-col gap-1 overflow-y-auto pr-1"
-                >
-                  {marcasFiltradasEnPanel.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center text-center text-[11px] text-slate-400">
-                      <p>No se encontró ninguna marca con ese nombre.</p>
+                {/* Columna 3: Marcas */}
+                {marcasDisponibles.length > 0 && (
+                  <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-3.5 md:col-span-2 xl:col-span-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Marcas ({marcasDisponibles.length})
+                        </span>
+                        {filtros.marcasSeleccionadas.length > 0 && (
+                          <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                            {filtros.marcasSeleccionadas.length} visibles
+                          </span>
+                        )}
+                        {marcasOcultas.length > 0 && (
+                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
+                            {marcasOcultas.length} ocultas
+                          </span>
+                        )}
+                      </div>
+                      {(filtros.marcasSeleccionadas.length > 0 ||
+                        marcasOcultas.length > 0) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFiltros((prev) => ({
+                              ...prev,
+                              marcasSeleccionadas: [],
+                              marcasOcultas: [],
+                            }))
+                          }
+                          className="text-[11px] font-semibold text-violet-700 hover:underline"
+                        >
+                          Mostrar todas
+                        </button>
+                      )}
+                    </div>
+
+                    <label className="relative mt-2 block">
+                      <Search
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        type="text"
+                        aria-label="Buscar marca en filtros"
+                        value={busquedaMarcaFiltro}
+                        onChange={(event) =>
+                          setBusquedaMarcaFiltro(event.target.value)
+                        }
+                        placeholder="Buscar marca en la lista..."
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-8 text-base text-slate-700 outline-none placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 sm:h-8 sm:text-[11px]"
+                      />
                       {busquedaMarcaFiltro && (
                         <button
                           type="button"
                           onClick={() => setBusquedaMarcaFiltro('')}
-                          className="mt-1.5 font-semibold text-violet-700 hover:underline"
+                          aria-label="Limpiar búsqueda de marca"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700"
                         >
-                          Ver todas las marcas
+                          <X size={12} />
                         </button>
                       )}
-                    </div>
-                  ) : (
-                    marcasFiltradasEnPanel.map((marca) => {
-                      const seleccionada =
-                        filtros.marcasSeleccionadas.includes(marca)
-                      const estaOculta = marcasOcultas.includes(marca)
-                      const conteo = conteoProductosPorMarca?.get(marca)
+                    </label>
 
-                      return (
-                        <div
-                          key={marca}
-                          role="listitem"
-                          className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition ${
-                            estaOculta
-                              ? 'border-rose-200 bg-rose-50 opacity-75'
-                              : seleccionada
-                                ? 'border-violet-300 bg-violet-50'
-                                : 'border-slate-200 bg-white hover:bg-slate-50'
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => alternarMarcaFiltro(marca)}
-                            title={
-                              seleccionada
-                                ? `Quitar filtro de ${marca}`
-                                : `Filtrar catálogo por ${marca}`
-                            }
-                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                          >
-                            <span
-                              className={`flex size-4 shrink-0 items-center justify-center rounded border text-[10px] transition ${
-                                seleccionada
-                                  ? 'border-[#34294d] bg-[#34294d] text-white'
-                                  : 'border-slate-300 bg-white text-transparent'
-                              }`}
+                    <div
+                      role="list"
+                      aria-label="Lista de marcas"
+                      className="mt-2 flex h-[176px] flex-col gap-1 overflow-y-auto pr-1"
+                    >
+                      {marcasFiltradasEnPanel.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center text-center text-[11px] text-slate-400">
+                          <p>No se encontró ninguna marca con ese nombre.</p>
+                          {busquedaMarcaFiltro && (
+                            <button
+                              type="button"
+                              onClick={() => setBusquedaMarcaFiltro('')}
+                              className="mt-1.5 font-semibold text-violet-700 hover:underline"
                             >
-                              <Check size={10} />
-                            </span>
-                            <span
-                              className={`truncate font-medium ${
-                                estaOculta
-                                  ? 'text-slate-400 line-through'
-                                  : seleccionada
-                                    ? 'font-semibold text-violet-800'
-                                    : 'text-slate-700'
-                              }`}
-                            >
-                              {marca}
-                            </span>
-                            {conteo !== undefined && (
-                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium tabular-nums text-slate-500">
-                                {conteo}
-                              </span>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => alternarMarcaOculta(marca)}
-                            title={
-                              estaOculta
-                                ? `Volver a mostrar ${marca} en el catálogo`
-                                : `Ocultar ${marca} del catálogo`
-                            }
-                            aria-label={
-                              estaOculta
-                                ? `Mostrar marca ${marca}`
-                                : `Ocultar marca ${marca}`
-                            }
-                            className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
-                              estaOculta
-                                ? 'border-rose-300 bg-white text-rose-600 hover:bg-rose-100'
-                                : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-800'
-                            }`}
-                          >
-                            {estaOculta ? (
-                              <EyeOff size={11} />
-                            ) : (
-                              <Eye size={11} />
-                            )}
-                            <span>{estaOculta ? 'Oculta' : 'Ocultar'}</span>
-                          </button>
+                              Ver todas las marcas
+                            </button>
+                          )}
                         </div>
-                      )
-                    })
-                  )}
-                </div>
+                      ) : (
+                        marcasFiltradasEnPanel.map((marca) => {
+                          const seleccionada =
+                            filtros.marcasSeleccionadas.includes(marca)
+                          const estaOculta = marcasOcultas.includes(marca)
+                          const conteo = conteoProductosPorMarca?.get(marca)
+
+                          return (
+                            <div
+                              key={marca}
+                              role="listitem"
+                              className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition ${
+                                estaOculta
+                                  ? 'border-rose-200 bg-rose-50 opacity-75'
+                                  : seleccionada
+                                    ? 'border-violet-300 bg-violet-50'
+                                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => alternarMarcaFiltro(marca)}
+                                title={
+                                  seleccionada
+                                    ? `Quitar filtro de ${marca}`
+                                    : `Filtrar catálogo por ${marca}`
+                                }
+                                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                              >
+                                <span
+                                  className={`flex size-4 shrink-0 items-center justify-center rounded border text-[10px] transition ${
+                                    seleccionada
+                                      ? 'border-[#34294d] bg-[#34294d] text-white'
+                                      : 'border-slate-300 bg-white text-transparent'
+                                  }`}
+                                >
+                                  <Check size={10} />
+                                </span>
+                                <span
+                                  className={`truncate font-medium ${
+                                    estaOculta
+                                      ? 'text-slate-400 line-through'
+                                      : seleccionada
+                                        ? 'font-semibold text-violet-800'
+                                        : 'text-slate-700'
+                                  }`}
+                                >
+                                  {marca}
+                                </span>
+                                {conteo !== undefined && (
+                                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium tabular-nums text-slate-500">
+                                    {conteo}
+                                  </span>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => alternarMarcaOculta(marca)}
+                                title={
+                                  estaOculta
+                                    ? `Volver a mostrar ${marca} en el catálogo`
+                                    : `Ocultar ${marca} del catálogo`
+                                }
+                                aria-label={
+                                  estaOculta
+                                    ? `Mostrar marca ${marca}`
+                                    : `Ocultar marca ${marca}`
+                                }
+                                className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
+                                  estaOculta
+                                    ? 'border-rose-300 bg-white text-rose-600 hover:bg-rose-100'
+                                    : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                                }`}
+                              >
+                                {estaOculta ? (
+                                  <EyeOff size={11} />
+                                ) : (
+                                  <Eye size={11} />
+                                )}
+                                <span>{estaOculta ? 'Oculta' : 'Ocultar'}</span>
+                              </button>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Pie fijo del Bottom Sheet solo en mobile */}
+            <div className="flex shrink-0 items-center gap-2 border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
+              <button
+                type="button"
+                onClick={onLimpiarFiltros}
+                className="h-10 rounded-lg border border-slate-200 px-3.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="primary-action flex h-10 flex-1 items-center justify-center rounded-lg bg-[#34294d] px-4 text-xs font-semibold text-white transition hover:bg-[#45365f]"
+              >
+                Ver {productos.length} resultados
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1105,7 +1157,7 @@ export function CatalogSection({
       ) : (
         <>
           {filasVisibles.length > 0 && (
-            <div className="hidden border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:grid xl:grid-cols-[minmax(220px,1.3fr)_minmax(265px,1.5fr)_minmax(190px,1fr)_144px] xl:gap-4">
+            <div className="hidden border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:grid xl:grid-cols-[minmax(255px,1.35fr)_minmax(275px,1.5fr)_minmax(195px,1fr)_144px] xl:gap-4">
               <span>Producto</span>
               <span>Proveedores y precios</span>
               <span>Costo y reventa</span>
@@ -1187,14 +1239,14 @@ export function CatalogSection({
               return (
                 <article
                   key={item.producto_id}
-                  className="catalog-row grid grid-cols-1 gap-3 px-4 py-3.5 transition hover:bg-slate-50/70 sm:px-5 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.3fr)_minmax(265px,1.5fr)_minmax(190px,1fr)_144px] xl:items-center xl:gap-4"
+                  className="catalog-row grid grid-cols-1 gap-3 px-3.5 py-2.5 transition hover:bg-slate-50/70 sm:px-5 sm:py-3 md:grid-cols-2 xl:grid-cols-[minmax(255px,1.35fr)_minmax(275px,1.5fr)_minmax(195px,1fr)_144px] xl:items-stretch xl:gap-4"
                 >
                   {/* Zona 1: Producto + clasificación inline */}
-                  <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex min-w-0 items-center gap-3.5">
                     <MiniaturaPerfumeEditable
                       producto={item}
                       onAbrirEditor={onEditImage}
-                      tamanoClase="size-16 shrink-0"
+                      tamanoClase="size-24 shrink-0 sm:size-28 xl:size-[116px]"
                     />
 
                     <div className="min-w-0 flex-1">
@@ -1203,7 +1255,7 @@ export function CatalogSection({
                           type="button"
                           onClick={() => onHistory(item)}
                           title={`Abrir ficha, precios e historial de ${item.marca} ${item.nombre}`}
-                          className="line-clamp-2 text-left text-[13px] font-bold leading-snug text-slate-900 transition hover:text-violet-700 hover:underline"
+                          className="line-clamp-2 text-left text-[14px] font-bold leading-snug text-slate-900 transition hover:text-violet-700 hover:underline"
                         >
                           {item.nombre}
                         </button>
@@ -1214,7 +1266,7 @@ export function CatalogSection({
                         )}
                       </div>
 
-                      <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                      <p className="mt-1 truncate text-[11.5px] text-slate-500">
                         <button
                           type="button"
                           onClick={() => onFiltrarMarca(item.marca)}
@@ -1237,7 +1289,7 @@ export function CatalogSection({
                         </span>
                       </p>
 
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => onEditarMarca(item.marca)}
@@ -1280,7 +1332,7 @@ export function CatalogSection({
                   </div>
 
                   {/* Zona 2: Proveedores y precios */}
-                  <div className="flex min-w-0 flex-col gap-1.5">
+                  <div className="flex min-w-0 flex-col justify-center gap-2 xl:py-1">
                     {ofertasPresentes.length > 0 ? (
                       ofertasPresentes.map((oferta) => {
                         const esGanadora =
@@ -1314,7 +1366,11 @@ export function CatalogSection({
                         return (
                           <div
                             key={oferta.proveedor}
-                            className={`rounded-lg border px-2.5 py-1.5 transition ${
+                            className={`flex flex-1 flex-col rounded-xl border px-3.5 py-2.5 transition xl:max-h-[118px] ${
+                              mostrarFilaExtra
+                                ? 'justify-between'
+                                : 'justify-center'
+                            } ${
                               esGanadora
                                 ? 'border-emerald-200 bg-emerald-50'
                                 : oferta.disponible
@@ -1322,10 +1378,10 @@ export function CatalogSection({
                                   : 'border-slate-100 bg-slate-50/70 opacity-70'
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center justify-between gap-2.5">
                               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                                 <span
-                                  className="size-2 shrink-0 rounded-full"
+                                  className="size-2.5 shrink-0 rounded-full"
                                   style={{
                                     backgroundColor: obtenerColorProveedor(
                                       oferta.proveedor,
@@ -1335,23 +1391,23 @@ export function CatalogSection({
                                     ),
                                   }}
                                 />
-                                <span className="truncate text-[11px] font-semibold text-slate-800">
+                                <span className="truncate text-[13px] font-bold text-slate-800">
                                   {oferta.proveedor}
                                 </span>
                                 {esGanadora && (
-                                  <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.2 text-[9px] font-bold uppercase text-white">
+                                  <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[9.5px] font-bold uppercase text-white">
                                     Mejor
                                   </span>
                                 )}
                                 {!oferta.disponible && (
-                                  <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.2 text-[9px] font-semibold text-rose-600">
+                                  <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-rose-600">
                                     {oferta.estadoStock || 'Sin stock'}
                                   </span>
                                 )}
                                 {mostrarVariacion && variacion !== null && (
                                   <span
                                     title={tituloVariacion}
-                                    className={`shrink-0 rounded px-1 py-0.2 text-[9px] font-semibold ${
+                                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                                       variacion < 0
                                         ? 'bg-emerald-50 text-emerald-700'
                                         : 'bg-rose-50 text-rose-600'
@@ -1364,10 +1420,10 @@ export function CatalogSection({
                                 )}
                               </div>
 
-                              <div className="flex shrink-0 items-center gap-2">
-                                <div className="text-right leading-tight">
+                              <div className="flex shrink-0 items-center gap-2.5">
+                                <div className="text-right leading-snug">
                                   <span
-                                    className={`block whitespace-nowrap text-[12px] font-bold tabular-nums tracking-tight ${
+                                    className={`block whitespace-nowrap text-[13.5px] font-bold tabular-nums tracking-tight ${
                                       oferta.disponible
                                         ? 'text-slate-900'
                                         : 'text-slate-400 line-through'
@@ -1382,7 +1438,7 @@ export function CatalogSection({
                                   </span>
                                   {oferta.disponible &&
                                     oferta.precioBaseEnARS !== null && (
-                                      <span className="block whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-600">
+                                      <span className="block whitespace-nowrap text-[13px] font-bold tabular-nums tracking-tight text-slate-900">
                                         {formatearMoneda(
                                           oferta.precioBaseEnARS,
                                           'ARS',
@@ -1397,16 +1453,16 @@ export function CatalogSection({
                                     onClick={() => onAdd(item, oferta)}
                                     title={`Agregar oferta de ${oferta.proveedor} al carrito`}
                                     aria-label={`Agregar ${item.nombre} de ${oferta.proveedor} al carrito`}
-                                    className="row-action flex size-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700"
+                                    className="row-action flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-violet-300 hover:text-violet-700 sm:size-7"
                                   >
-                                    <Plus size={12} />
+                                    <Plus size={14} />
                                   </button>
                                 )}
                               </div>
                             </div>
 
                             {mostrarFilaExtra && (
-                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/70 pt-1 text-[10px]">
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/70 pt-1.5 text-[10.5px]">
                                 {esGanadora &&
                                   item.brechaArbitrajePorcentaje !== null &&
                                   item.brechaArbitrajePorcentaje >= 2 &&
@@ -1471,7 +1527,7 @@ export function CatalogSection({
                         )
                       })
                     ) : (
-                      <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-400">
+                      <div className="flex flex-1 items-center rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-3 text-[11px] text-slate-400 xl:max-h-[118px]">
                         Sin stock ni precios disponibles
                       </div>
                     )}
@@ -1484,10 +1540,18 @@ export function CatalogSection({
                   </div>
 
                   {/* Zona 3: Costo final y reventa sugerida */}
-                  <div className="min-w-0">
+                  <div className="flex min-w-0 flex-col justify-center">
                     {costoProducto ? (
-                      <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
-                        <div className="flex items-start justify-between gap-2">
+                      <div
+                        className={`rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 ${
+                          configRentabilidad.mostrarRentabilidadEnCatalogo &&
+                          rentabilidadProducto &&
+                          editandoPrecioId !== item.producto_id
+                            ? 'grid grid-cols-2 gap-3 xl:block'
+                            : ''
+                        }`}
+                      >
+                        <div className="flex flex-col gap-0.5 xl:flex-row xl:items-start xl:justify-between xl:gap-2">
                           <div>
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                               Costo final
@@ -1502,11 +1566,11 @@ export function CatalogSection({
                               </span>
                             )}
                           </div>
-                          <div className="text-right leading-tight">
-                            <span className="block whitespace-nowrap text-[12px] font-bold tabular-nums text-slate-900">
+                          <div className="leading-tight xl:text-right">
+                            <span className="block whitespace-nowrap text-[12.5px] font-bold tabular-nums text-slate-900">
                               {formatearMoneda(costoProducto.costoTotalUSD, 'USD')}
                             </span>
-                            <span className="block whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-600">
+                            <span className="block whitespace-nowrap text-[12.5px] font-bold tabular-nums text-slate-900">
                               {formatearMoneda(costoProducto.costoTotalARS, 'ARS')}
                             </span>
                           </div>
@@ -1514,7 +1578,13 @@ export function CatalogSection({
 
                         {configRentabilidad.mostrarRentabilidadEnCatalogo &&
                           rentabilidadProducto && (
-                            <div className="mt-2 border-t border-slate-200/70 pt-2">
+                            <div
+                              className={
+                                editandoPrecioId === item.producto_id
+                                  ? 'mt-2 border-t border-slate-200/70 pt-2'
+                                  : 'border-l border-slate-200/70 pl-3 xl:mt-2 xl:border-l-0 xl:border-t xl:pl-0 xl:pt-2'
+                              }
+                            >
                               {editandoPrecioId === item.producto_id ? (
                                 <div className="flex items-center gap-1">
                                   <span className="text-[10px] font-semibold text-slate-400">
@@ -1536,7 +1606,7 @@ export function CatalogSection({
                                       }
                                     }}
                                     placeholder="ARS"
-                                    className="h-7 min-w-0 flex-1 rounded border border-violet-300 bg-white px-2 text-xs font-semibold text-slate-800 outline-none"
+                                    className="h-8 min-w-0 flex-1 rounded border border-violet-300 bg-white px-2 text-base font-semibold text-slate-800 outline-none sm:h-7 sm:text-xs"
                                     autoFocus
                                   />
                                   <button
@@ -1545,7 +1615,7 @@ export function CatalogSection({
                                       void confirmarPrecioManualFila(item)
                                     }
                                     title="Guardar"
-                                    className="flex size-6 shrink-0 items-center justify-center rounded bg-violet-600 text-white hover:bg-violet-700"
+                                    className="flex size-7 shrink-0 items-center justify-center rounded bg-violet-600 text-white hover:bg-violet-700 sm:size-6"
                                   >
                                     <Check size={11} />
                                   </button>
@@ -1553,14 +1623,14 @@ export function CatalogSection({
                                     type="button"
                                     onClick={() => setEditandoPrecioId(null)}
                                     title="Cancelar"
-                                    className="flex size-6 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50"
+                                    className="flex size-7 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 sm:size-6"
                                   >
                                     <X size={11} />
                                   </button>
                                 </div>
                               ) : (
                                 <>
-                                  <div className="flex items-start justify-between gap-2">
+                                  <div className="flex flex-col gap-0.5 xl:flex-row xl:items-start xl:justify-between xl:gap-2">
                                     <div className="flex flex-wrap items-center gap-1">
                                       <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                                         PVP
@@ -1603,14 +1673,14 @@ export function CatalogSection({
                                       )}
                                     </div>
 
-                                    <div className="text-right leading-tight">
-                                      <span className="block whitespace-nowrap text-[12px] font-bold tabular-nums text-slate-900">
+                                    <div className="leading-tight xl:text-right">
+                                      <span className="block whitespace-nowrap text-[12.5px] font-bold tabular-nums text-slate-900">
                                         {formatearMoneda(
                                           rentabilidadProducto.precioVentaSugeridoUSD,
                                           'USD',
                                         )}
                                       </span>
-                                      <span className="block whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-600">
+                                      <span className="block whitespace-nowrap text-[12.5px] font-bold tabular-nums text-slate-900">
                                         {formatearMoneda(
                                           rentabilidadProducto.precioVentaSugeridoARS,
                                           'ARS',
@@ -1642,23 +1712,23 @@ export function CatalogSection({
                           )}
                       </div>
                     ) : (
-                      <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-400">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-400">
                         Sin stock para calcular costo
                       </div>
                     )}
                   </div>
 
                   {/* Zona 4: Carrito y acciones rápidas (siempre visible) */}
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2 xl:flex-col xl:items-stretch xl:justify-center xl:gap-1.5">
                     {mejorOferta && mejorOferta.disponible ? (
                       <button
                         type="button"
                         onClick={() => onAdd(item, mejorOferta)}
                         aria-label={`Agregar mejor oferta de ${item.nombre} (${mejorOferta.proveedor}) al carrito`}
                         title={`Agregar mejor oferta (${mejorOferta.proveedor}) al carrito`}
-                        className="primary-action flex w-full flex-col items-center justify-center rounded-lg bg-[#34294d] px-3 py-2 text-white shadow-xs transition hover:bg-[#45365f]"
+                        className="primary-action flex h-10 flex-1 flex-col items-center justify-center rounded-lg bg-[#34294d] px-2.5 py-1.5 leading-tight text-white shadow-xs transition hover:bg-[#45365f] xl:h-auto xl:w-full xl:flex-none xl:px-3 xl:py-2"
                       >
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold">
                           <Plus size={14} />
                           <span>Agregar</span>
                           {cantidadEnCarrito > 0 && (
@@ -1667,17 +1737,17 @@ export function CatalogSection({
                             </span>
                           )}
                         </span>
-                        <span className="mt-0.5 text-[10px] font-medium text-violet-200">
+                        <span className="whitespace-nowrap text-[10px] font-medium text-violet-200 xl:mt-0.5">
                           en {mejorOferta.proveedor}
                         </span>
                       </button>
                     ) : (
-                      <div className="flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-400">
+                      <div className="flex h-10 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-400 xl:h-11 xl:flex-none">
                         Sin stock
                       </div>
                     )}
 
-                    <div className="grid grid-cols-4 gap-1">
+                    <div className="grid shrink-0 grid-cols-4 gap-1 xl:w-full">
                       <button
                         type="button"
                         onClick={() => onAbrirModalAlerta(item)}
@@ -1689,7 +1759,7 @@ export function CatalogSection({
                               ? 'En seguimiento · Click para editar alerta'
                               : 'Seguir perfume y configurar alerta'
                         }
-                        className={`row-action flex h-7 items-center justify-center rounded-md border transition ${
+                        className={`row-action flex h-10 w-9 items-center justify-center rounded-md border transition xl:h-7 xl:w-auto ${
                           alertaEvaluada?.tieneAlertaActiva
                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                             : enWatchlist
@@ -1712,7 +1782,7 @@ export function CatalogSection({
                         onClick={() => onHistory(item)}
                         aria-label={`Ver historial de ${item.nombre}`}
                         title="Ver historial de precios"
-                        className="row-action flex h-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
+                        className="row-action flex h-10 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-violet-200 hover:text-violet-700 xl:h-7 xl:w-auto"
                       >
                         <TrendingDown size={13} />
                       </button>
@@ -1722,7 +1792,7 @@ export function CatalogSection({
                         onClick={() => onFusionar(item)}
                         aria-label={`Fusionar ${item.nombre} con otro perfume`}
                         title="Fusionar con otro perfume (mismo perfume con otro nombre)"
-                        className="row-action flex h-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-violet-200 hover:text-violet-700"
+                        className="row-action flex h-10 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-violet-200 hover:text-violet-700 xl:h-7 xl:w-auto"
                       >
                         <GitMerge size={13} />
                       </button>
@@ -1733,7 +1803,7 @@ export function CatalogSection({
                         rel="noopener noreferrer"
                         aria-label={`Buscar ${item.nombre} en MercadoLibre`}
                         title={`Buscar ${item.marca} ${item.nombre} en MercadoLibre Argentina`}
-                        className="row-action flex h-7 items-center justify-center gap-0.5 rounded-md border border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-800 transition hover:bg-amber-100"
+                        className="row-action flex h-10 w-9 items-center justify-center gap-0.5 rounded-md border border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-800 transition hover:bg-amber-100 xl:h-7 xl:w-auto"
                       >
                         <span>ML</span>
                         <ExternalLink size={10} />

@@ -81,6 +81,11 @@ import {
   construirUrlFragrantica,
   generarVariacionesRespaldo,
 } from '@/lib/rentabilidad'
+import {
+  MIN_UNIDADES_POR_TIENDA,
+  optimizarCarritoPerfumes,
+  type ResultadoOptimizacionCarrito,
+} from '@/lib/optimizadorCarrito'
 import { estaSupabaseConfigurado } from '@/lib/supabase/cliente'
 import {
   MiniaturaPerfumeEditable,
@@ -135,6 +140,7 @@ import {
   FiltrosCatalogo,
   FiltroInteligenciaPrecios,
   GeneroPerfume,
+  ItemCarrito,
   ItemWatchlist,
   MapaVariacionesPrecios,
   ModoEscalaMayorista,
@@ -230,8 +236,11 @@ export function PerfumeWorkspace() {
   const [sincronizandoFotos, setSincronizandoFotos] = useState(false)
   const [mensajeSyncFotos, setMensajeSyncFotos] = useState<string | null>(null)
 
-  // Copiado de WhatsApp
+  // Copiado de WhatsApp y optimización de carrito
   const [proveedorCopiado, setProveedorCopiado] = useState<string | null>(null)
+  const [optimizacionAplicadaMsg, setOptimizacionAplicadaMsg] = useState<
+    string | null
+  >(null)
 
   // Stores de Zustand con persistencia en localStorage
   const dolarDelDiaStore = useConfiguracionStore((estado) => estado.dolarDelDia)
@@ -430,6 +439,9 @@ export function PerfumeWorkspace() {
   )
   const quitarItem = useCarritoStore((estado) => estado.quitarItem)
   const vaciarCarrito = useCarritoStore((estado) => estado.vaciarCarrito)
+  const reemplazarItemsCarrito = useCarritoStore(
+    (estado) => estado.reemplazarItemsCarrito,
+  )
   const setEscalaProveedor = useCarritoStore((estado) => estado.setEscalaProveedor)
   const sincronizarPreciosDesdeCatalogo = useCarritoStore(
     (estado) => estado.sincronizarPreciosDesdeCatalogo,
@@ -1852,6 +1864,38 @@ export function PerfumeWorkspace() {
   const totalGeneralARS = useMemo(
     () => resumenesCarrito.reduce((acum, r) => acum + r.totalEnARS, 0),
     [resumenesCarrito],
+  )
+
+  const optimizacionCarrito = useMemo(
+    () =>
+      optimizarCarritoPerfumes({
+        itemsCarrito,
+        productosCatalogo: productosGlobales,
+        proveedoresActivos,
+        escalaForzadaPorProveedor: escalasPorProveedor,
+        dolarDelDia,
+      }),
+    [
+      itemsCarrito,
+      productosGlobales,
+      proveedoresActivos,
+      escalasPorProveedor,
+      dolarDelDia,
+    ],
+  )
+
+  const manejarAplicarOptimizacionCarrito = useCallback(
+    (nuevosItems: ItemCarrito[], descripcion: string) => {
+      if (nuevosItems.length === 0) return
+      reemplazarItemsCarrito(nuevosItems)
+      setOptimizacionAplicadaMsg(descripcion)
+      setTimeout(() => {
+        setOptimizacionAplicadaMsg((actual) =>
+          actual === descripcion ? null : actual,
+        )
+      }, 3500)
+    },
+    [reemplazarItemsCarrito],
   )
 
   const rentabilidadCarrito = useMemo(() => {
@@ -4585,6 +4629,20 @@ export function PerfumeWorkspace() {
                     })}
                   </div>
 
+                  <PanelOptimizadorCarrito
+                    resultado={optimizacionCarrito}
+                    monedaVisualizacion={monedaVisualizacion}
+                    tiendaUnicaActual={
+                      resumenesCarrito.length === 1
+                        ? resumenesCarrito[0].proveedor
+                        : null
+                    }
+                    cantidadTiendasActual={resumenesCarrito.length}
+                    mapIndicesProveedores={mapIndicesProveedores}
+                    mensajeAplicado={optimizacionAplicadaMsg}
+                    onAplicarItems={manejarAplicarOptimizacionCarrito}
+                  />
+
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
@@ -5246,6 +5304,503 @@ export function PerfumeWorkspace() {
         />
       )}
     </main>
+  )
+}
+
+function formatearParMonedas(
+  valorARS: number,
+  valorUSD: number,
+  monedaPrincipal: Moneda,
+): { principal: string; secundario: string } {
+  if (monedaPrincipal === 'USD') {
+    return {
+      principal: formatearMoneda(valorUSD, 'USD'),
+      secundario: formatearMoneda(valorARS, 'ARS'),
+    }
+  }
+  return {
+    principal: formatearMoneda(valorARS, 'ARS'),
+    secundario: formatearMoneda(valorUSD, 'USD'),
+  }
+}
+
+interface PanelOptimizadorCarritoProps {
+  resultado: ResultadoOptimizacionCarrito
+  monedaVisualizacion: Moneda
+  tiendaUnicaActual: string | null
+  cantidadTiendasActual: number
+  mapIndicesProveedores: Map<string, number>
+  mensajeAplicado: string | null
+  onAplicarItems: (nuevosItems: ItemCarrito[], descripcion: string) => void
+}
+
+function PanelOptimizadorCarrito({
+  resultado,
+  monedaVisualizacion,
+  tiendaUnicaActual,
+  cantidadTiendasActual,
+  mapIndicesProveedores,
+  mensajeAplicado,
+  onAplicarItems,
+}: PanelOptimizadorCarritoProps) {
+  if (resultado.itemsRequeridos.length === 0) return null
+
+  const {
+    totalUnidadesRequeridas,
+    cumpleMinimoActual,
+    evaluacionesTiendas,
+    mejorTiendaUnica,
+    mejorSeparacion,
+    estrategiaRecomendada,
+    ahorroMaximoARS,
+    ahorroMaximoUSD,
+  } = resultado
+
+  const actualFmt = formatearParMonedas(
+    resultado.totalActualARS,
+    resultado.totalActualUSD,
+    monedaVisualizacion,
+  )
+  const ahorroFmt = formatearParMonedas(
+    ahorroMaximoARS,
+    ahorroMaximoUSD,
+    monedaVisualizacion,
+  )
+
+  return (
+    <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-800">
+            <Sparkles size={14} className="text-violet-600" />
+            Optimizador de compra entre tiendas
+          </span>
+          <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            Mín. {MIN_UNIDADES_POR_TIENDA} perfumes por tienda si separás
+          </span>
+        </div>
+
+        {mensajeAplicado && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+            <Check size={12} />
+            {mensajeAplicado}
+          </span>
+        )}
+      </div>
+
+      {/* Recomendación inteligente */}
+      {estrategiaRecomendada === 'SEPARAR_PEDIDO' && mejorSeparacion && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  <Boxes size={11} />
+                  Mejor opción: separar pedido
+                </span>
+                <span className="text-[12px] font-semibold text-emerald-900 dark:text-emerald-200">
+                  Dividir entre {mejorSeparacion.tiendas.length} tiendas (mín.{' '}
+                  {MIN_UNIDADES_POR_TIENDA} perfumes c/u)
+                </span>
+              </div>
+
+              {(() => {
+                const sepFmt = formatearParMonedas(
+                  mejorSeparacion.totalARS,
+                  mejorSeparacion.totalUSD,
+                  monedaVisualizacion,
+                )
+                const ahorroVsUnicaFmt =
+                  mejorTiendaUnica &&
+                  mejorSeparacion.ahorroVsMejorTiendaUnicaARS !== null &&
+                  mejorSeparacion.ahorroVsMejorTiendaUnicaUSD !== null
+                    ? formatearParMonedas(
+                        mejorSeparacion.ahorroVsMejorTiendaUnicaARS,
+                        mejorSeparacion.ahorroVsMejorTiendaUnicaUSD,
+                        monedaVisualizacion,
+                      )
+                    : null
+
+                return (
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-200">
+                    Total combinado: <strong>{sepFmt.principal}</strong> (
+                    {sepFmt.secundario}).
+                    {ahorroMaximoARS > 1 && (
+                      <>
+                        {' '}
+                        Ahorrás <strong>{ahorroFmt.principal}</strong> frente a tu
+                        selección actual
+                      </>
+                    )}
+                    {ahorroVsUnicaFmt &&
+                      mejorTiendaUnica &&
+                      (mejorSeparacion.ahorroVsMejorTiendaUnicaARS ?? 0) > 1 && (
+                        <>
+                          {ahorroMaximoARS > 1 ? ' y ' : ' Ahorrás '}
+                          <strong>{ahorroVsUnicaFmt.principal}</strong> frente a
+                          comprar todo en {mejorTiendaUnica.proveedor}
+                        </>
+                      )}
+                    {!mejorTiendaUnica && (
+                      <>
+                        {' '}
+                        Ninguna tienda única tiene stock completo de toda tu lista,
+                        pero separando cubrís el 100%.
+                      </>
+                    )}
+                    {!cumpleMinimoActual && ahorroMaximoARS <= 1 && (
+                      <>
+                        {' '}
+                        Tu selección actual tenía menos de{' '}
+                        {MIN_UNIDADES_POR_TIENDA} perfumes en una tienda; esta
+                        distribución cumple el mínimo.
+                      </>
+                    )}
+                    .
+                  </p>
+                )
+              })()}
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                onAplicarItems(
+                  mejorSeparacion.itemsAsignados,
+                  `Pedido separado en ${mejorSeparacion.tiendas.length} tiendas aplicado`,
+                )
+              }
+              className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-[11px] font-semibold text-white transition hover:bg-emerald-800 sm:w-auto"
+            >
+              <span>Aplicar separación sugerida</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {mejorSeparacion.tiendas.map((tienda) => {
+              const colorTienda = obtenerColorProveedor(
+                tienda.proveedor,
+                mapIndicesProveedores.get(tienda.proveedor) ?? 0,
+              )
+              const subFmt = formatearParMonedas(
+                tienda.totalARS,
+                tienda.totalUSD,
+                monedaVisualizacion,
+              )
+              return (
+                <div
+                  key={`sep-${tienda.proveedor}`}
+                  className="rounded-lg border border-emerald-200/80 bg-white p-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: colorTienda }}
+                      />
+                      <span className="text-[11px] font-semibold text-slate-800">
+                        {tienda.proveedor}
+                      </span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                        {tienda.totalUnidades} u. · {tienda.escalaAplicada}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-semibold tabular-nums text-slate-800">
+                        {subFmt.principal}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {tienda.items.map((it) => (
+                      <span
+                        key={`sep-it-${tienda.proveedor}-${it.productoId}`}
+                        className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-600"
+                      >
+                        {it.cantidad}× {it.marca} {it.nombre}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {estrategiaRecomendada === 'TIENDA_UNICA' && mejorTiendaUnica && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-3.5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md bg-[#34294d] px-2 py-0.5 text-[10px] font-semibold text-white">
+                  <TrendingDown size={11} />
+                  Mejor opción: tienda única
+                </span>
+                <span className="text-[12px] font-semibold text-violet-900 dark:text-violet-200">
+                  {tiendaUnicaActual &&
+                  tiendaUnicaActual !== mejorTiendaUnica.proveedor
+                    ? `Te conviene comprar toda esta lista en ${mejorTiendaUnica.proveedor}`
+                    : cantidadTiendasActual > 1
+                      ? `Te conviene concentrar toda la lista en ${mejorTiendaUnica.proveedor}`
+                      : `La tienda más barata es ${mejorTiendaUnica.proveedor}`}
+                </span>
+              </div>
+
+              {(() => {
+                const mejorFmt = formatearParMonedas(
+                  mejorTiendaUnica.totalARS,
+                  mejorTiendaUnica.totalUSD,
+                  monedaVisualizacion,
+                )
+                const sepFmt = mejorSeparacion
+                  ? formatearParMonedas(
+                      mejorSeparacion.totalARS,
+                      mejorSeparacion.totalUSD,
+                      monedaVisualizacion,
+                    )
+                  : null
+
+                return (
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-violet-800 dark:text-violet-200">
+                    Total en <strong>{mejorTiendaUnica.proveedor}</strong>:{' '}
+                    <strong>{mejorFmt.principal}</strong> ({mejorFmt.secundario} ·
+                    Escala {mejorTiendaUnica.escalaAplicada}).
+                    {ahorroMaximoARS > 1 && (
+                      <>
+                        {' '}
+                        Ahorrás <strong>{ahorroFmt.principal}</strong> (
+                        {ahorroFmt.secundario}) respecto a tu selección actual.
+                      </>
+                    )}
+                    {!cumpleMinimoActual && ahorroMaximoARS <= 1 && (
+                      <>
+                        {' '}
+                        Tu selección actual divide el pedido con menos de{' '}
+                        {MIN_UNIDADES_POR_TIENDA} perfumes en alguna tienda.
+                      </>
+                    )}{' '}
+                    {totalUnidadesRequeridas < MIN_UNIDADES_POR_TIENDA * 2
+                      ? `Como tenés ${totalUnidadesRequeridas} ${
+                          totalUnidadesRequeridas === 1 ? 'perfume' : 'perfumes'
+                        } en total (separar requiere mínimo ${MIN_UNIDADES_POR_TIENDA} por tienda, ${
+                          MIN_UNIDADES_POR_TIENDA * 2
+                        } en total), conviene llevar todo junto.`
+                      : mejorSeparacion === null
+                        ? `No existe una combinación de tiendas con mínimo ${MIN_UNIDADES_POR_TIENDA} perfumes en cada una que cubra toda la lista.`
+                        : sepFmt
+                          ? `Separar el pedido con mínimo ${MIN_UNIDADES_POR_TIENDA} perfumes por tienda saldría ${sepFmt.principal}, por lo que conviene concentrar en ${mejorTiendaUnica.proveedor}.`
+                          : null}
+                  </p>
+                )
+              })()}
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                onAplicarItems(
+                  mejorTiendaUnica.itemsAsignados,
+                  `Lista completa pasada a ${mejorTiendaUnica.proveedor}`,
+                )
+              }
+              className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#34294d] px-3.5 py-2 text-[11px] font-semibold text-white transition hover:bg-[#45365f] sm:w-auto"
+            >
+              <span>Pasar toda la lista a {mejorTiendaUnica.proveedor}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {estrategiaRecomendada === 'ACTUAL_ES_OPTIMO' && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold text-white">
+              <Check size={11} />
+              Pedido optimizado
+            </span>
+            <span className="text-[12px] font-semibold text-emerald-900 dark:text-emerald-200">
+              Tu selección actual ya tiene el total más barato disponible (
+              {actualFmt.principal})
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-emerald-800 dark:text-emerald-200">
+            {cantidadTiendasActual > 1
+              ? `Cada tienda cumple el mínimo de ${MIN_UNIDADES_POR_TIENDA} perfumes y no hay otra combinación más económica.`
+              : totalUnidadesRequeridas < MIN_UNIDADES_POR_TIENDA * 2
+                ? `Con ${totalUnidadesRequeridas} ${
+                    totalUnidadesRequeridas === 1 ? 'perfume' : 'perfumes'
+                  } no se llega al mínimo de ${MIN_UNIDADES_POR_TIENDA} por tienda para separar, y ${
+                    tiendaUnicaActual ?? 'esta tienda'
+                  } ya ofrece el menor total.`
+                : `Evaluamos separar en múltiples tiendas (mín. ${MIN_UNIDADES_POR_TIENDA} perfumes c/u) y cambiar toda la lista a otra tienda: tu selección actual ya es la más conveniente.`}
+          </p>
+        </div>
+      )}
+
+      {estrategiaRecomendada === 'SIN_COBERTURA_COMPLETA' && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+              <Zap size={11} />
+              Stock parcial entre tiendas
+            </span>
+            <span className="text-[12px] font-semibold text-amber-900">
+              Ninguna tienda o separación con mínimo {MIN_UNIDADES_POR_TIENDA}{' '}
+              perfumes cubre el 100% de esta lista
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-amber-800">
+            Revisá en el detalle de abajo qué perfumes tiene disponibles cada tienda
+            y cuáles faltan para ajustar tu selección.
+          </p>
+        </div>
+      )}
+
+      {/* Comparativa por tienda */}
+      {evaluacionesTiendas.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Total de esta misma lista en cada tienda ({totalUnidadesRequeridas}{' '}
+            {totalUnidadesRequeridas === 1 ? 'unidad' : 'unidades'})
+          </p>
+
+          <div className="flex flex-col gap-2">
+            {evaluacionesTiendas.map((ev) => {
+              const colorTienda = obtenerColorProveedor(
+                ev.proveedor,
+                mapIndicesProveedores.get(ev.proveedor) ?? 0,
+              )
+              const esMejorUnica = mejorTiendaUnica?.proveedor === ev.proveedor
+              const esActualUnica = tiendaUnicaActual === ev.proveedor
+              const totalFmt = formatearParMonedas(
+                ev.totalARS,
+                ev.totalUSD,
+                monedaVisualizacion,
+              )
+              const diffABS = Math.abs(ev.diferenciaVsActualARS)
+              const diffFmt = formatearParMonedas(
+                diffABS,
+                Math.abs(ev.diferenciaVsActualUSD),
+                monedaVisualizacion,
+              )
+              const yaEsSeleccionExacta =
+                esActualUnica &&
+                ev.tieneListaCompleta &&
+                Math.abs(ev.diferenciaVsActualARS) <= 1
+
+              return (
+                <div
+                  key={`comp-${ev.proveedor}`}
+                  className={`flex flex-col gap-2.5 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between ${
+                    esMejorUnica
+                      ? 'border-emerald-200'
+                      : 'border-slate-200'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: colorTienda }}
+                      />
+                      <span className="text-[12px] font-semibold text-slate-800">
+                        {ev.proveedor}
+                      </span>
+
+                      {esMejorUnica && (
+                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          Más barata
+                        </span>
+                      )}
+
+                      {esActualUnica && (
+                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+                          Tu selección
+                        </span>
+                      )}
+
+                      {ev.tieneListaCompleta ? (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                          Lista completa · Escala {ev.escalaAplicada}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                          Faltan {ev.productosFaltantes.length} (
+                          {ev.totalUnidadesCubiertas}/{totalUnidadesRequeridas} u.)
+                        </span>
+                      )}
+                    </div>
+
+                    {ev.productosFaltantes.length > 0 && (
+                      <p className="mt-1 truncate text-[10px] text-amber-700">
+                        Sin stock:{' '}
+                        {ev.productosFaltantes
+                          .map((f) => `${f.marca} ${f.nombre}`)
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 sm:shrink-0 sm:justify-end">
+                    <div className="text-left sm:text-right">
+                      {ev.totalUnidadesCubiertas > 0 ? (
+                        <>
+                          <p className="text-[12px] font-semibold tabular-nums text-slate-800">
+                            {totalFmt.principal}{' '}
+                            <span className="text-[10px] font-normal text-slate-400">
+                              ({totalFmt.secundario})
+                            </span>
+                          </p>
+                          {ev.tieneListaCompleta && (
+                            <p
+                              className={`text-[10px] font-medium ${
+                                ev.diferenciaVsActualARS < -1
+                                  ? 'text-emerald-700'
+                                  : ev.diferenciaVsActualARS > 1
+                                    ? 'text-slate-500'
+                                    : 'text-slate-400'
+                              }`}
+                            >
+                              {ev.diferenciaVsActualARS < -1
+                                ? `-${diffFmt.principal} más barato`
+                                : ev.diferenciaVsActualARS > 1
+                                  ? `+${diffFmt.principal} más caro`
+                                  : 'Igual al actual'}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-slate-400">
+                          Sin disponibilidad
+                        </p>
+                      )}
+                    </div>
+
+                    {ev.tieneListaCompleta && !yaEsSeleccionExacta && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onAplicarItems(
+                            ev.itemsAsignados,
+                            `Toda la lista asignada a ${ev.proveedor}`,
+                          )
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Elegir tienda
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

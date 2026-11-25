@@ -26,6 +26,7 @@ interface EstadoCarrito {
   incrementarCantidad: (productoId: number, proveedor: string, delta?: number) => void
   vaciarCarrito: () => void
   vaciarProveedor: (proveedor: string) => void
+  reemplazarItemsCarrito: (nuevosItems: ItemCarrito[]) => void
   setEscalaProveedor: (proveedor: string, modo: ModoEscalaMayorista) => void
   sincronizarPreciosDesdeCatalogo: (productos: ProductoComparado[]) => void
   obtenerResumenPorProveedor: (
@@ -329,6 +330,12 @@ export const useCarritoStore = create<EstadoCarrito>()(
             items: estado.items.filter((item) => item.proveedor !== proveedor),
             escalaForzadaPorProveedor: siguientesEscalas,
           }
+        })
+      },
+
+      reemplazarItemsCarrito: (nuevosItems: ItemCarrito[]) => {
+        set({
+          items: nuevosItems.map((item) => ({ ...item })),
         })
       },
 

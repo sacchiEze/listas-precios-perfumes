@@ -361,6 +361,35 @@ export interface ResumenProveedorCarrito {
   ahorroTotalEnMonedaOrigen: number
 }
 
+/** Desglose separado de gastos del pedido en el carrito (Tienda + Pasero + Envío) */
+export interface DesgloseGastosCarrito {
+  totalUnidades: number
+  unidadesConPasero: number
+  unidadesSinPasero: number
+  monedaTiendaUnificada: Moneda | null
+  totalTiendaOrigen: number | null
+  totalTiendaARS: number
+  totalTiendaUSD: number
+  costoPaseroUnitarioOrigen: number
+  monedaPasero: Moneda
+  costoPaseroUnitarioARS: number
+  costoPaseroUnitarioUSD: number
+  totalPaseroOrigen: number
+  totalPaseroARS: number
+  totalPaseroUSD: number
+  costoEnvioPedidoOrigen: number
+  monedaEnvioPedido: Moneda
+  totalEnvioARS: number
+  totalEnvioUSD: number
+  unidadesProrrateoEnvio: number
+  envioUnitarioProrrateadoARS: number
+  envioUnitarioProrrateadoUSD: number
+  totalGeneralConGastosARS: number
+  totalGeneralConGastosUSD: number
+  costoPromedioFinalUnitarioARS: number
+  costoPromedioFinalUnitarioUSD: number
+}
+
 /** Detalle individual del proceso de sincronización automática de imágenes */
 export interface DetalleSincronizacionImagen {
   productoId: number

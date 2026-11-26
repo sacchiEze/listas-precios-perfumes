@@ -68,6 +68,7 @@ import {
   construirUrlBusquedaMercadoLibre,
   construirUrlFragrantica,
   generarVariacionesRespaldo,
+  obtenerCostosAgregadosParaProveedor,
 } from '@/lib/rentabilidad'
 import { estaSupabaseConfigurado } from '@/lib/supabase/cliente'
 import {
@@ -379,16 +380,22 @@ export function RentabilidadModal({
       ? pvpManualNumero
       : null
 
+  const costosAgregadosSim = obtenerCostosAgregadosParaProveedor(
+    productoSeleccionado?.proveedorMasBarato,
+    config,
+  )
+
   const costoCalculadoSim = calcularCostoPerfume({
     costoBaseARS: costoARS,
     costoBaseUSD: costoUSD,
-    comisionUSD: config.costoEnvioPorPerfumeUSD,
-    envioAproximadoARS: config.costoFijoEnvioEmbalajeARS,
+    comisionUSD: costosAgregadosSim.comisionUSD,
+    envioAproximadoARS: costosAgregadosSim.envioAproximadoARS,
     dolarDelDia,
   })
 
   const resultadoSim = calcularRentabilidadUnitaria({
     productoId: productoSeleccionado?.producto_id,
+    proveedor: productoSeleccionado?.proveedorMasBarato,
     costoARS: costoCalculadoSim.costoBaseARS,
     costoUSD: costoCalculadoSim.costoBaseUSD,
     costoCalculado: costoCalculadoSim,

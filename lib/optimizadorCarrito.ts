@@ -1,9 +1,11 @@
+import { obtenerRecargoUnitarioARS } from '@/lib/rentabilidad'
 import {
   calcularResumenProveedor,
   calcularResumenesPorProveedor,
 } from '@/store/useCarritoStore'
 import type {
   ConcentracionPerfume,
+  ConfiguracionRentabilidad,
   EtiquetaEscalaAplicada,
   ItemCarrito,
   ItemCarritoCalculado,
@@ -103,6 +105,10 @@ export interface EntradaOptimizacionCarrito {
   proveedoresActivos: string[]
   escalaForzadaPorProveedor: Record<string, ModoEscalaMayorista>
   dolarDelDia: number
+  configRentabilidad?: Pick<
+    ConfiguracionRentabilidad,
+    'costoEnvioPorPerfumeUSD' | 'costoFijoEnvioEmbalajeARS'
+  >
 }
 
 /**
@@ -276,6 +282,7 @@ function resolverAsignacionParaTiers(
   itemsRequeridos: ItemRequeridoCarrito[],
   mapaProductos: Map<number, ProductoComparado>,
   cotizacionSegura: number,
+  recargoPorTiendaARS: number[],
 ): number[][] | null {
   const k = tiendas.length
   const n = itemsRequeridos.length
@@ -310,9 +317,11 @@ function resolverAsignacionParaTiers(
         tiers[j].modoEvaluacion,
         cotizacionSegura,
       )
-      preciosMatriz[i][j] = resuelto.precioUnitarioARS
-      if (resuelto.precioUnitarioARS < mejorPrecio) {
-        mejorPrecio = resuelto.precioUnitarioARS
+      const costoFinalUnitarioARS =
+        resuelto.precioUnitarioARS + (recargoPorTiendaARS[j] ?? 0)
+      preciosMatriz[i][j] = costoFinalUnitarioARS
+      if (costoFinalUnitarioARS < mejorPrecio) {
+        mejorPrecio = costoFinalUnitarioARS
         mejorJ = j
       }
     }
@@ -503,6 +512,7 @@ function buscarMejorSeparacionPedido(
   totalActualARS: number,
   totalActualUSD: number,
   mejorTiendaUnica: EvaluacionTiendaUnica | null,
+  obtenerRecargoTiendaARS: (proveedor: string) => number,
 ): EvaluacionPedidoSeparado | null {
   if (
     totalUnidadesRequeridas < MIN_UNIDADES_POR_TIENDA * 2 ||
@@ -569,12 +579,16 @@ function buscarMejorSeparacionPedido(
       if (sumaMinimosAcum > totalUnidadesRequeridas) return
 
       if (idx === tiendas.length) {
+        const recargoPorTiendaARS = tiendas.map((prov) =>
+          obtenerRecargoTiendaARS(prov),
+        )
         const matriz = resolverAsignacionParaTiers(
           tiendas,
           tiersActuales,
           itemsRequeridos,
           mapaProductos,
           cotizacionSegura,
+          recargoPorTiendaARS,
         )
         if (!matriz) return
 
@@ -608,18 +622,23 @@ function buscarMejorSeparacionPedido(
           if (!resumen || resumen.totalUnidades < MIN_UNIDADES_POR_TIENDA) {
             return
           }
+          const recargoTotalARS =
+            resumen.totalUnidades * obtenerRecargoTiendaARS(resumen.proveedor)
+          const totalARS = resumen.totalEnARS + recargoTotalARS
+          const totalUSD =
+            resumen.totalEnUSD + recargoTotalARS / cotizacionSegura
           asignacionesTiendas.push({
             proveedor: resumen.proveedor,
             monedaOrigen: resumen.monedaOrigen,
             totalUnidades: resumen.totalUnidades,
             escalaAplicada: resumen.escalaAplicada,
             totalOrigen: resumen.totalEnMonedaOrigen,
-            totalARS: resumen.totalEnARS,
-            totalUSD: resumen.totalEnUSD,
+            totalARS,
+            totalUSD,
             items: resumen.items,
           })
-          sumaARS += resumen.totalEnARS
-          sumaUSD += resumen.totalEnUSD
+          sumaARS += totalARS
+          sumaUSD += totalUSD
         }
 
         if (asignacionesTiendas.length < 2) return
@@ -690,8 +709,18 @@ export function optimizarCarritoPerfumes({
   proveedoresActivos,
   escalaForzadaPorProveedor,
   dolarDelDia,
+  configRentabilidad,
 }: EntradaOptimizacionCarrito): ResultadoOptimizacionCarrito {
   const cotizacionSegura = dolarDelDia > 0 ? dolarDelDia : 1
+  const obtenerRecargoTiendaARS = (proveedor: string): number => {
+    if (!configRentabilidad) return 0
+    return obtenerRecargoUnitarioARS(
+      proveedor,
+      configRentabilidad,
+      cotizacionSegura,
+    )
+  }
+
   const mapaProductos = new Map<number, ProductoComparado>(
     productosCatalogo.map((p) => [p.producto_id, p]),
   )
@@ -707,8 +736,19 @@ export function optimizarCarritoPerfumes({
     escalaForzadaPorProveedor,
     cotizacionSegura,
   )
-  const totalActualARS = resumenesActuales.reduce((acc, r) => acc + r.totalEnARS, 0)
-  const totalActualUSD = resumenesActuales.reduce((acc, r) => acc + r.totalEnUSD, 0)
+  const totalActualARS = resumenesActuales.reduce(
+    (acc, r) =>
+      acc + r.totalEnARS + r.totalUnidades * obtenerRecargoTiendaARS(r.proveedor),
+    0,
+  )
+  const totalActualUSD = resumenesActuales.reduce(
+    (acc, r) =>
+      acc +
+      r.totalEnUSD +
+      (r.totalUnidades * obtenerRecargoTiendaARS(r.proveedor)) /
+        cotizacionSegura,
+    0,
+  )
 
   const cumpleMinimoActual =
     resumenesActuales.length <= 1 ||
@@ -760,8 +800,11 @@ export function optimizarCarritoPerfumes({
       const tieneListaCompleta = productosFaltantes.length === 0
       const monedaOrigen =
         resumen?.monedaOrigen ?? inferirMonedaProveedor(proveedor, productosCatalogo)
-      const totalARS = resumen?.totalEnARS ?? 0
-      const totalUSD = resumen?.totalEnUSD ?? 0
+      const recargoTotalARS =
+        unidadesCubiertas * obtenerRecargoTiendaARS(proveedor)
+      const totalARS = (resumen?.totalEnARS ?? 0) + recargoTotalARS
+      const totalUSD =
+        (resumen?.totalEnUSD ?? 0) + recargoTotalARS / cotizacionSegura
 
       return {
         proveedor,
@@ -810,6 +853,7 @@ export function optimizarCarritoPerfumes({
     totalActualARS,
     totalActualUSD,
     mejorTiendaUnica,
+    obtenerRecargoTiendaARS,
   )
 
   const separacionSuperaTiendaUnica =

@@ -33,6 +33,9 @@ import {
   calcularCostoPerfume,
   calcularRentabilidadUnitaria,
   construirUrlBusquedaMercadoLibre,
+  esProveedorSinCostosAgregados,
+  obtenerCostosAgregadosParaProveedor,
+  obtenerRecargoUnitarioARS,
 } from '@/lib/rentabilidad'
 import {
   MiniaturaPerfumeEditable,
@@ -1384,10 +1387,21 @@ export function CatalogSection({
                   if (a.disponible !== b.disponible) {
                     return a.disponible ? -1 : 1
                   }
-                  return (
-                    (a.precioBaseEnARS ?? Infinity) -
-                    (b.precioBaseEnARS ?? Infinity)
-                  )
+                  const costoA =
+                    (a.precioBaseEnARS ?? Infinity) +
+                    obtenerRecargoUnitarioARS(
+                      a.proveedor,
+                      configRentabilidad,
+                      dolarDelDia,
+                    )
+                  const costoB =
+                    (b.precioBaseEnARS ?? Infinity) +
+                    obtenerRecargoUnitarioARS(
+                      b.proveedor,
+                      configRentabilidad,
+                      dolarDelDia,
+                    )
+                  return costoA - costoB
                 })
 
               const sinListaNombres =
@@ -1399,14 +1413,18 @@ export function CatalogSection({
                     )
                   : []
 
+              const costosAgregadosGanador = obtenerCostosAgregadosParaProveedor(
+                mejorProveedor,
+                configRentabilidad,
+              )
               const costoProducto =
                 item.tieneStockDisponible && item.mejorPrecioARS !== null
                   ? calcularCostoPerfume({
                       costoBaseARS: item.mejorPrecioARS,
                       costoBaseUSD: item.mejorPrecioUSD,
-                      comisionUSD: configRentabilidad.costoEnvioPorPerfumeUSD,
+                      comisionUSD: costosAgregadosGanador.comisionUSD,
                       envioAproximadoARS:
-                        configRentabilidad.costoFijoEnvioEmbalajeARS,
+                        costosAgregadosGanador.envioAproximadoARS,
                       dolarDelDia,
                     })
                   : null
@@ -1416,6 +1434,7 @@ export function CatalogSection({
                 costoProducto !== null
                   ? calcularRentabilidadUnitaria({
                       productoId: item.producto_id,
+                      proveedor: mejorProveedor,
                       costoARS: costoProducto.costoBaseARS,
                       costoUSD: costoProducto.costoBaseUSD,
                       costoCalculado: costoProducto,
@@ -1597,6 +1616,16 @@ export function CatalogSection({
                                     Mejor
                                   </span>
                                 )}
+                                {esProveedorSinCostosAgregados(
+                                  oferta.proveedor,
+                                ) && (
+                                  <span
+                                    title="Sin costos agregados: el precio en pesos de su lista es final (retiro en stock local)"
+                                    className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase text-sky-800 dark:bg-sky-500/20 dark:text-sky-300"
+                                  >
+                                    Precio final
+                                  </span>
+                                )}
                                 {proveedorExclusivo === oferta.proveedor && (
                                   <span
                                     title={`Solo ${oferta.proveedor} tiene este producto en su lista`}
@@ -1763,14 +1792,20 @@ export function CatalogSection({
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                               Costo final
                             </span>
-                            {(costoProducto.comisionUSD > 0 ||
-                              costoProducto.envioAproximadoARS > 0) && (
-                              <span className="mt-0.5 block text-[10px] text-slate-400">
-                                +US$ {costoProducto.comisionUSD} · +${' '}
-                                {Math.round(
-                                  costoProducto.envioAproximadoARS,
-                                ).toLocaleString('es-AR')}
+                            {esProveedorSinCostosAgregados(mejorProveedor) ? (
+                              <span className="mt-0.5 block text-[10px] font-medium text-sky-700 dark:text-sky-300">
+                                Sin costos agregados (retiro)
                               </span>
+                            ) : (
+                              (costoProducto.comisionUSD > 0 ||
+                                costoProducto.envioAproximadoARS > 0) && (
+                                <span className="mt-0.5 block text-[10px] text-slate-400">
+                                  +US$ {costoProducto.comisionUSD} · +${' '}
+                                  {Math.round(
+                                    costoProducto.envioAproximadoARS,
+                                  ).toLocaleString('es-AR')}
+                                </span>
+                              )
                             )}
                           </div>
                           <div className="leading-tight xl:text-right">

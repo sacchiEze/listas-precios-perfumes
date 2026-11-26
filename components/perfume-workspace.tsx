@@ -76,9 +76,11 @@ import {
   PLANTILLA_EJEMPLO_IMPORTACION,
 } from '@/lib/importadorListas'
 import {
+  calcularCostoPerfume,
   calcularRentabilidadUnitaria,
   construirUrlBusquedaMercadoLibre,
   construirUrlFragrantica,
+  esProveedorSinCostosAgregados,
   generarVariacionesRespaldo,
 } from '@/lib/rentabilidad'
 import {
@@ -109,7 +111,9 @@ import {
   subirImagenProductoOptimizada,
 } from '@/services/catalogoService'
 import {
+  calcularDesgloseGastosCarrito,
   calcularResumenesPorProveedor,
+  COSTO_PASERO_POR_DEFECTO_ARS,
   useCarritoStore,
 } from '@/store/useCarritoStore'
 import {
@@ -136,6 +140,7 @@ import {
   ConfiguracionRentabilidad,
   CotizacionesDolarDia,
   CriterioOrdenamiento,
+  DesgloseGastosCarrito,
   FilaVistaComparador,
   FiltrosCatalogo,
   FiltroInteligenciaPrecios,
@@ -151,6 +156,7 @@ import {
   RegistroStockPropio,
   ResultadoSincronizacionImagenes,
   ResumenPrevisualizacionImportacion,
+  ResumenProveedorCarrito,
   TipoCotizacionDolar,
   TipoProducto,
 } from '@/types/perfumeria'
@@ -433,6 +439,16 @@ export function PerfumeWorkspace() {
   const escalasPorProveedorStore = useCarritoStore(
     (estado) => estado.escalaForzadaPorProveedor,
   )
+  const costoPaseroPorPerfumeStore = useCarritoStore(
+    (estado) => estado.costoPaseroPorPerfume,
+  )
+  const monedaPaseroStore = useCarritoStore((estado) => estado.monedaPasero)
+  const costoEnvioPedidoStore = useCarritoStore(
+    (estado) => estado.costoEnvioPedido,
+  )
+  const monedaEnvioPedidoStore = useCarritoStore(
+    (estado) => estado.monedaEnvioPedido,
+  )
   const agregarItem = useCarritoStore((estado) => estado.agregarItem)
   const incrementarCantidad = useCarritoStore(
     (estado) => estado.incrementarCantidad,
@@ -443,6 +459,16 @@ export function PerfumeWorkspace() {
     (estado) => estado.reemplazarItemsCarrito,
   )
   const setEscalaProveedor = useCarritoStore((estado) => estado.setEscalaProveedor)
+  const setCostoPaseroPorPerfume = useCarritoStore(
+    (estado) => estado.setCostoPaseroPorPerfume,
+  )
+  const setMonedaPasero = useCarritoStore((estado) => estado.setMonedaPasero)
+  const setCostoEnvioPedido = useCarritoStore(
+    (estado) => estado.setCostoEnvioPedido,
+  )
+  const setMonedaEnvioPedido = useCarritoStore(
+    (estado) => estado.setMonedaEnvioPedido,
+  )
   const sincronizarPreciosDesdeCatalogo = useCarritoStore(
     (estado) => estado.sincronizarPreciosDesdeCatalogo,
   )
@@ -587,6 +613,12 @@ export function PerfumeWorkspace() {
   const monedaVisualizacion: Moneda = hidratado ? monedaVisualizacionStore : 'USD'
   const itemsCarrito = hidratado ? itemsCarritoStore : []
   const escalasPorProveedor = hidratado ? escalasPorProveedorStore : {}
+  const costoPaseroPorPerfume = hidratado
+    ? costoPaseroPorPerfumeStore
+    : COSTO_PASERO_POR_DEFECTO_ARS
+  const monedaPasero: Moneda = hidratado ? monedaPaseroStore : 'ARS'
+  const costoEnvioPedido = hidratado ? costoEnvioPedidoStore : 0
+  const monedaEnvioPedido: Moneda = hidratado ? monedaEnvioPedidoStore : 'ARS'
   const itemsWatchlist: Record<number, ItemWatchlist> = useMemo(
     () => (hidratado ? itemsWatchlistStore : {}),
     [hidratado, itemsWatchlistStore],
@@ -1866,6 +1898,34 @@ export function PerfumeWorkspace() {
     [resumenesCarrito],
   )
 
+  const desgloseGastosCarrito = useMemo(
+    () =>
+      calcularDesgloseGastosCarrito({
+        resumenes: resumenesCarrito,
+        costoPaseroPorPerfume,
+        monedaPasero,
+        costoEnvioPedido,
+        monedaEnvioPedido,
+        dolarDelDia,
+      }),
+    [
+      resumenesCarrito,
+      costoPaseroPorPerfume,
+      monedaPasero,
+      costoEnvioPedido,
+      monedaEnvioPedido,
+      dolarDelDia,
+    ],
+  )
+
+  const configRecargoOptimizadorCarrito = useMemo(
+    () => ({
+      costoEnvioPorPerfumeUSD: 0,
+      costoFijoEnvioEmbalajeARS: desgloseGastosCarrito.costoPaseroUnitarioARS,
+    }),
+    [desgloseGastosCarrito.costoPaseroUnitarioARS],
+  )
+
   const optimizacionCarrito = useMemo(
     () =>
       optimizarCarritoPerfumes({
@@ -1874,6 +1934,7 @@ export function PerfumeWorkspace() {
         proveedoresActivos,
         escalaForzadaPorProveedor: escalasPorProveedor,
         dolarDelDia,
+        configRentabilidad: configRecargoOptimizadorCarrito,
       }),
     [
       itemsCarrito,
@@ -1881,6 +1942,7 @@ export function PerfumeWorkspace() {
       proveedoresActivos,
       escalasPorProveedor,
       dolarDelDia,
+      configRecargoOptimizadorCarrito,
     ],
   )
 
@@ -1896,6 +1958,38 @@ export function PerfumeWorkspace() {
       }, 3500)
     },
     [reemplazarItemsCarrito],
+  )
+
+  const obtenerCostoCalculadoItemCarrito = useCallback(
+    (
+      proveedor: string,
+      costoUnitarioARS: number,
+      costoUnitarioUSD: number,
+    ) => {
+      const esSinPasero = esProveedorSinCostosAgregados(proveedor)
+      const comisionUSD = esSinPasero
+        ? 0
+        : desgloseGastosCarrito.costoPaseroUnitarioUSD
+      const llevaEnvioProrrateado =
+        desgloseGastosCarrito.unidadesConPasero > 0 ? !esSinPasero : true
+      const envioAproximadoARS = llevaEnvioProrrateado
+        ? desgloseGastosCarrito.envioUnitarioProrrateadoARS
+        : 0
+
+      return calcularCostoPerfume({
+        costoBaseARS: costoUnitarioARS,
+        costoBaseUSD: costoUnitarioUSD,
+        comisionUSD,
+        envioAproximadoARS,
+        dolarDelDia,
+      })
+    },
+    [
+      desgloseGastosCarrito.costoPaseroUnitarioUSD,
+      desgloseGastosCarrito.unidadesConPasero,
+      desgloseGastosCarrito.envioUnitarioProrrateadoARS,
+      dolarDelDia,
+    ],
   )
 
   const rentabilidadCarrito = useMemo(() => {
@@ -1915,11 +2009,18 @@ export function PerfumeWorkspace() {
           item.cantidad > 0 ? item.subtotalARS / item.cantidad : 0
         const costoUnitarioUSD =
           item.cantidad > 0 ? item.subtotalUSD / item.cantidad : 0
+        const costoCalculadoItem = obtenerCostoCalculadoItemCarrito(
+          item.proveedor,
+          costoUnitarioARS,
+          costoUnitarioUSD,
+        )
 
         const calc = calcularRentabilidadUnitaria({
           productoId: item.productoId,
+          proveedor: item.proveedor,
           costoARS: costoUnitarioARS,
           costoUSD: costoUnitarioUSD,
+          costoCalculado: costoCalculadoItem,
           ml: mlProducto,
           tipo: tipoProducto,
           dolarDelDia,
@@ -1954,7 +2055,13 @@ export function PerfumeWorkspace() {
       ahorroEscalasUSD: dolarDelDia > 0 ? ahorroEscalasARS / dolarDelDia : 0,
       roiPromedio,
     }
-  }, [resumenesCarrito, mapaProductosGlobales, dolarDelDia, configRentabilidad])
+  }, [
+    resumenesCarrito,
+    mapaProductosGlobales,
+    dolarDelDia,
+    configRentabilidad,
+    obtenerCostoCalculadoItemCarrito,
+  ])
 
   const manejarAgregarAlCarrito = (
     producto: ProductoComparado,
@@ -3603,6 +3710,7 @@ export function PerfumeWorkspace() {
                 prod && prod.mejorPrecioARS !== null
                   ? calcularRentabilidadUnitaria({
                       productoId: prod.producto_id,
+                      proveedor: prod.proveedorMasBarato,
                       costoARS: prod.mejorPrecioARS,
                       costoUSD: prod.mejorPrecioUSD,
                       ml: prod.ml,
@@ -4472,10 +4580,18 @@ export function PerfumeWorkspace() {
                                 item.cantidad > 0
                                   ? item.subtotalUSD / item.cantidad
                                   : 0
+                              const costoCalculadoItem =
+                                obtenerCostoCalculadoItemCarrito(
+                                  item.proveedor,
+                                  unitarioARS,
+                                  unitarioUSD,
+                                )
                               const rentItem = calcularRentabilidadUnitaria({
                                 productoId: item.productoId,
+                                proveedor: item.proveedor,
                                 costoARS: unitarioARS,
                                 costoUSD: unitarioUSD,
+                                costoCalculado: costoCalculadoItem,
                                 ml: mlItem,
                                 tipo: tipoItem,
                                 dolarDelDia,
@@ -4593,7 +4709,7 @@ export function PerfumeWorkspace() {
                           <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                             <div>
                               <p className="text-[12px] font-semibold text-slate-800">
-                                Subtotal {resumen.proveedor}:{' '}
+                                Total tienda ({resumen.proveedor}):{' '}
                                 {formatearMoneda(
                                   resumen.totalEnMonedaOrigen,
                                   resumen.monedaOrigen,
@@ -4629,6 +4745,18 @@ export function PerfumeWorkspace() {
                     })}
                   </div>
 
+                  <PanelDesgloseGastosCarrito
+                    resumenes={resumenesCarrito}
+                    desglose={desgloseGastosCarrito}
+                    monedaVisualizacion={monedaVisualizacion}
+                    dolarDelDia={dolarDelDia}
+                    mapIndicesProveedores={mapIndicesProveedores}
+                    onSetCostoPaseroPorPerfume={setCostoPaseroPorPerfume}
+                    onSetMonedaPasero={setMonedaPasero}
+                    onSetCostoEnvioPedido={setCostoEnvioPedido}
+                    onSetMonedaEnvioPedido={setMonedaEnvioPedido}
+                  />
+
                   <PanelOptimizadorCarrito
                     resultado={optimizacionCarrito}
                     monedaVisualizacion={monedaVisualizacion}
@@ -4650,23 +4778,9 @@ export function PerfumeWorkspace() {
                         Rentabilidad proyectada del pedido
                       </span>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400">
-                          Retiro/envío c/u:
+                        <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                          Incluye tienda + pasero + envío
                         </span>
-                        {[3.5, 2, 0].map((val) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => setCostoEnvioPorPerfumeUSD(val)}
-                            className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
-                              configRentabilidad.costoEnvioPorPerfumeUSD === val
-                                ? 'border-violet-300 bg-[#34294d] text-white'
-                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            USD {val}
-                          </button>
-                        ))}
                         <button
                           type="button"
                           onClick={() => setModalRentabilidadAbierto(true)}
@@ -4680,13 +4794,19 @@ export function PerfumeWorkspace() {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <div className="rounded-lg border border-slate-200 bg-white p-3">
                         <p className="text-[10px] font-medium text-slate-400">
-                          Costo total mayorista
+                          Costo total con gastos
                         </p>
                         <p className="mt-1 text-[14px] font-semibold text-slate-800">
-                          {formatearMoneda(totalGeneralUSD, 'USD')}
+                          {formatearMoneda(
+                            desgloseGastosCarrito.totalGeneralConGastosUSD,
+                            'USD',
+                          )}
                         </p>
                         <p className="text-[10px] text-slate-400">
-                          {formatearMoneda(totalGeneralARS, 'ARS')}
+                          {formatearMoneda(
+                            desgloseGastosCarrito.totalGeneralConGastosARS,
+                            'ARS',
+                          )}
                         </p>
                       </div>
 
@@ -4746,14 +4866,29 @@ export function PerfumeWorkspace() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-5">
                     <div>
                       <p className="text-[11px] text-slate-400">
-                        Total estimado
+                        Total general del pedido (Tienda + Pasero + Envío)
                       </p>
                       <p className="mt-1 text-[20px] font-semibold tracking-tight text-slate-900">
-                        {formatearMoneda(totalGeneralUSD, 'USD')}{' '}
+                        {formatearMoneda(
+                          desgloseGastosCarrito.totalGeneralConGastosUSD,
+                          'USD',
+                        )}{' '}
                         <span className="text-[13px] font-medium text-slate-400">
-                          / {formatearMoneda(totalGeneralARS, 'ARS')}
+                          /{' '}
+                          {formatearMoneda(
+                            desgloseGastosCarrito.totalGeneralConGastosARS,
+                            'ARS',
+                          )}
                         </span>
                       </p>
+                      {(desgloseGastosCarrito.totalPaseroARS > 0 ||
+                        desgloseGastosCarrito.totalEnvioARS > 0) && (
+                        <p className="mt-0.5 text-[10px] text-slate-400">
+                          Solo tienda:{' '}
+                          {formatearMoneda(totalGeneralUSD, 'USD')} /{' '}
+                          {formatearMoneda(totalGeneralARS, 'ARS')}
+                        </p>
+                      )}
                     </div>
 
                     <button
@@ -5322,6 +5457,433 @@ function formatearParMonedas(
     principal: formatearMoneda(valorARS, 'ARS'),
     secundario: formatearMoneda(valorUSD, 'USD'),
   }
+}
+
+interface PanelDesgloseGastosCarritoProps {
+  resumenes: ResumenProveedorCarrito[]
+  desglose: DesgloseGastosCarrito
+  monedaVisualizacion: Moneda
+  dolarDelDia: number
+  mapIndicesProveedores: Map<string, number>
+  onSetCostoPaseroPorPerfume: (valor: number) => void
+  onSetMonedaPasero: (moneda: Moneda) => void
+  onSetCostoEnvioPedido: (valor: number) => void
+  onSetMonedaEnvioPedido: (moneda: Moneda) => void
+}
+
+function PanelDesgloseGastosCarrito({
+  resumenes,
+  desglose,
+  monedaVisualizacion,
+  dolarDelDia,
+  mapIndicesProveedores,
+  onSetCostoPaseroPorPerfume,
+  onSetMonedaPasero,
+  onSetCostoEnvioPedido,
+  onSetMonedaEnvioPedido,
+}: PanelDesgloseGastosCarritoProps) {
+  const [inputPasero, setInputPasero] = useState<string>(() =>
+    desglose.costoPaseroUnitarioOrigen > 0
+      ? String(desglose.costoPaseroUnitarioOrigen)
+      : '',
+  )
+  const [inputEnvio, setInputEnvio] = useState<string>(() =>
+    desglose.costoEnvioPedidoOrigen > 0
+      ? String(desglose.costoEnvioPedidoOrigen)
+      : '',
+  )
+
+  useEffect(() => {
+    const numActual = inputPasero === '' ? 0 : Number(inputPasero)
+    if (numActual !== desglose.costoPaseroUnitarioOrigen) {
+      setInputPasero(
+        desglose.costoPaseroUnitarioOrigen > 0
+          ? String(desglose.costoPaseroUnitarioOrigen)
+          : '',
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desglose.costoPaseroUnitarioOrigen])
+
+  useEffect(() => {
+    const numActual = inputEnvio === '' ? 0 : Number(inputEnvio)
+    if (numActual !== desglose.costoEnvioPedidoOrigen) {
+      setInputEnvio(
+        desglose.costoEnvioPedidoOrigen > 0
+          ? String(desglose.costoEnvioPedidoOrigen)
+          : '',
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desglose.costoEnvioPedidoOrigen])
+
+  const monedaPrincipalTienda: Moneda =
+    desglose.monedaTiendaUnificada ?? monedaVisualizacion
+  const fmtTienda = formatearParMonedas(
+    desglose.totalTiendaARS,
+    desglose.totalTiendaUSD,
+    monedaPrincipalTienda,
+  )
+  const fmtPasero = formatearParMonedas(
+    desglose.totalPaseroARS,
+    desglose.totalPaseroUSD,
+    desglose.monedaPasero,
+  )
+  const fmtEnvio = formatearParMonedas(
+    desglose.totalEnvioARS,
+    desglose.totalEnvioUSD,
+    desglose.monedaEnvioPedido,
+  )
+  const fmtTotalGeneral = formatearParMonedas(
+    desglose.totalGeneralConGastosARS,
+    desglose.totalGeneralConGastosUSD,
+    monedaVisualizacion,
+  )
+
+  const presetsPasero =
+    desglose.monedaPasero === 'ARS' ? [3500, 4000, 5000] : [2.5, 3, 3.5]
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-800">
+            <Wallet size={14} className="text-violet-600" />
+            Desglose de gastos del pedido
+          </span>
+          <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            Tienda · Pasero · Envío
+          </span>
+        </div>
+        <span className="text-[10px] text-slate-400">
+          USD 1 = ARS {dolarDelDia.toLocaleString('es-AR')}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {/* 1. Total para la tienda */}
+        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                <ShoppingBag size={13} className="text-emerald-600" />
+                {resumenes.length === 1
+                  ? `Total para la tienda (${resumenes[0].proveedor})`
+                  : 'Total para las tiendas'}
+              </span>
+              <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                {desglose.totalUnidades}{' '}
+                {desglose.totalUnidades === 1 ? 'perfume' : 'perfumes'}
+              </span>
+            </div>
+
+            <p className="mt-2 text-[17px] font-bold tabular-nums tracking-tight text-slate-900">
+              {fmtTienda.principal}
+            </p>
+            <p className="mt-0.5 text-[11px] tabular-nums text-slate-400">
+              Aprox. {fmtTienda.secundario}
+            </p>
+          </div>
+
+          <div className="mt-3 border-t border-slate-100 pt-2.5">
+            {resumenes.length === 1 ? (
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="size-2 rounded-full"
+                    style={{
+                      backgroundColor: obtenerColorProveedor(
+                        resumenes[0].proveedor,
+                        mapIndicesProveedores.get(resumenes[0].proveedor) ?? 0,
+                      ),
+                    }}
+                  />
+                  Pago directo a {resumenes[0].proveedor}
+                </span>
+                <span className="font-medium text-slate-600">
+                  Escala {resumenes[0].escalaAplicada}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {resumenes.map((r) => {
+                  const colorProv = obtenerColorProveedor(
+                    r.proveedor,
+                    mapIndicesProveedores.get(r.proveedor) ?? 0,
+                  )
+                  return (
+                    <div
+                      key={`desg-tienda-${r.proveedor}`}
+                      className="flex items-center justify-between gap-2 text-[11px]"
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-slate-600">
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: colorProv }}
+                        />
+                        <span className="truncate font-medium">
+                          {r.proveedor}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          ({r.totalUnidades} u.)
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums text-slate-800">
+                        {formatearMoneda(
+                          r.totalEnMonedaOrigen,
+                          r.monedaOrigen,
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 2. Total para el pasero */}
+        <div className="flex flex-col justify-between rounded-xl border border-violet-200 bg-white p-3.5">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                <Users size={13} className="text-violet-600" />
+                Total para el pasero
+              </span>
+              <span className="shrink-0 whitespace-nowrap rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+                {desglose.unidadesConPasero}{' '}
+                {desglose.unidadesConPasero === 1 ? 'perfume' : 'perfumes'}
+              </span>
+            </div>
+
+            <p className="mt-2 text-[17px] font-bold tabular-nums tracking-tight text-slate-900">
+              {fmtPasero.principal}
+            </p>
+            <p className="mt-0.5 text-[11px] tabular-nums text-slate-400">
+              Aprox. {fmtPasero.secundario}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {desglose.unidadesConPasero > 0 ? (
+                <>
+                  {desglose.unidadesConPasero} ×{' '}
+                  {formatearMoneda(
+                    desglose.costoPaseroUnitarioOrigen,
+                    desglose.monedaPasero,
+                  )}{' '}
+                  c/u
+                  {desglose.unidadesSinPasero > 0 && (
+                    <> · {desglose.unidadesSinPasero} u. sin pasero (Supa)</>
+                  )}
+                </>
+              ) : (
+                'Sin cargo de pasero (retiro local en Supa)'
+              )}
+            </p>
+          </div>
+
+          <div className="mt-3 border-t border-slate-100 pt-2.5">
+            <label className="block">
+              <span className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <span>Costo pasero por perfume</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <select
+                  aria-label="Moneda del pasero"
+                  value={desglose.monedaPasero}
+                  onChange={(event) =>
+                    onSetMonedaPasero(event.target.value as Moneda)
+                  }
+                  className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-700 outline-none focus:border-violet-400"
+                >
+                  <option value="ARS">ARS $</option>
+                  <option value="USD">USD</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  step={desglose.monedaPasero === 'ARS' ? '500' : '0.5'}
+                  aria-label="Costo del pasero por perfume"
+                  placeholder={
+                    desglose.monedaPasero === 'ARS' ? 'Ej: 4000' : 'Ej: 3.5'
+                  }
+                  value={inputPasero}
+                  onChange={(event) => {
+                    const texto = event.target.value
+                    setInputPasero(texto)
+                    if (texto.trim() === '') {
+                      onSetCostoPaseroPorPerfume(0)
+                      return
+                    }
+                    const numero = Number(texto)
+                    if (Number.isFinite(numero) && numero >= 0) {
+                      onSetCostoPaseroPorPerfume(numero)
+                    }
+                  }}
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-[12px] font-semibold tabular-nums text-slate-900 outline-none focus:border-violet-400"
+                />
+              </div>
+            </label>
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              {presetsPasero.map((preset) => {
+                const activo = desglose.costoPaseroUnitarioOrigen === preset
+                return (
+                  <button
+                    key={`preset-pasero-${preset}`}
+                    type="button"
+                    onClick={() => {
+                      setInputPasero(String(preset))
+                      onSetCostoPaseroPorPerfume(preset)
+                    }}
+                    className={`rounded border px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition ${
+                      activo
+                        ? 'border-violet-300 bg-violet-50 text-violet-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {desglose.monedaPasero === 'ARS'
+                      ? `$ ${preset.toLocaleString('es-AR')}`
+                      : `US$ ${preset}`}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Costo de envío del pedido */}
+        <div className="flex flex-col justify-between rounded-xl border border-amber-200 bg-white p-3.5">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                <Package size={13} className="text-amber-600" />
+                Envío del pedido
+              </span>
+              <span className="shrink-0 whitespace-nowrap rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                Por paquete
+              </span>
+            </div>
+
+            <p className="mt-2 text-[17px] font-bold tabular-nums tracking-tight text-slate-900">
+              {fmtEnvio.principal}
+            </p>
+            <p className="mt-0.5 text-[11px] tabular-nums text-slate-400">
+              Aprox. {fmtEnvio.secundario}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {desglose.costoEnvioPedidoOrigen > 0 &&
+              desglose.unidadesProrrateoEnvio > 0 ? (
+                <>
+                  Prorrateado:{' '}
+                  {formatearMoneda(
+                    desglose.monedaEnvioPedido === 'ARS'
+                      ? desglose.envioUnitarioProrrateadoARS
+                      : desglose.envioUnitarioProrrateadoUSD,
+                    desglose.monedaEnvioPedido,
+                  )}{' '}
+                  c/u ({desglose.unidadesProrrateoEnvio} u.)
+                </>
+              ) : (
+                'Ingresá el costo del envío para sumarlo al pedido'
+              )}
+            </p>
+          </div>
+
+          <div className="mt-3 border-t border-slate-100 pt-2.5">
+            <label className="block">
+              <span className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <span>Costo de envío del pedido</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <select
+                  aria-label="Moneda del envío del pedido"
+                  value={desglose.monedaEnvioPedido}
+                  onChange={(event) =>
+                    onSetMonedaEnvioPedido(event.target.value as Moneda)
+                  }
+                  className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-700 outline-none focus:border-violet-400"
+                >
+                  <option value="ARS">ARS $</option>
+                  <option value="USD">USD</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  step={desglose.monedaEnvioPedido === 'ARS' ? '1000' : '1'}
+                  aria-label="Costo de envío del pedido"
+                  placeholder={
+                    desglose.monedaEnvioPedido === 'ARS'
+                      ? 'Ej: 12000'
+                      : 'Ej: 10'
+                  }
+                  value={inputEnvio}
+                  onChange={(event) => {
+                    const texto = event.target.value
+                    setInputEnvio(texto)
+                    if (texto.trim() === '') {
+                      onSetCostoEnvioPedido(0)
+                      return
+                    }
+                    const numero = Number(texto)
+                    if (Number.isFinite(numero) && numero >= 0) {
+                      onSetCostoEnvioPedido(numero)
+                    }
+                  }}
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-[12px] font-semibold tabular-nums text-slate-900 outline-none focus:border-violet-400"
+                />
+                {desglose.costoEnvioPedidoOrigen > 0 && (
+                  <button
+                    type="button"
+                    aria-label="Limpiar costo de envío"
+                    onClick={() => {
+                      setInputEnvio('')
+                      onSetCostoEnvioPedido(0)
+                    }}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 transition hover:text-rose-600"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra resumen de suma total de los 3 gastos */}
+      <div className="mt-3 flex flex-col justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
+            Total final del pedido (Tienda + Pasero + Envío)
+          </p>
+          <p className="mt-0.5 text-[10px] text-emerald-800 dark:text-emerald-200">
+            Costo final promedio:{' '}
+            <strong>
+              {formatearMoneda(
+                desglose.costoPromedioFinalUnitarioARS,
+                'ARS',
+              )}
+            </strong>{' '}
+            (
+            {formatearMoneda(
+              desglose.costoPromedioFinalUnitarioUSD,
+              'USD',
+            )}
+            ) por unidad
+          </p>
+        </div>
+
+        <div className="text-left sm:text-right">
+          <p className="text-[16px] font-bold tabular-nums text-emerald-900 dark:text-emerald-200">
+            {fmtTotalGeneral.principal}
+          </p>
+          <p className="text-[11px] font-medium tabular-nums text-emerald-800 dark:text-emerald-200">
+            Aprox. {fmtTotalGeneral.secundario}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 interface PanelOptimizadorCarritoProps {

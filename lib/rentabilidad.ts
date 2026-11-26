@@ -26,6 +26,64 @@ export interface EntradaCostoPerfume {
 }
 
 /**
+ * Indica si un proveedor no tiene costos agregados (comisión/envío),
+ * por lo que el precio en pesos de su lista ya es el costo final.
+ */
+export function esProveedorSinCostosAgregados(
+  proveedor?: string | null,
+): boolean {
+  if (!proveedor) return false
+  return proveedor.trim().toLowerCase() === 'supa'
+}
+
+/**
+ * Resuelve los costos agregados aplicables a un proveedor específico.
+ * Para proveedores sin costos agregados (como `supa`), devuelve 0 en ambos conceptos.
+ */
+export function obtenerCostosAgregadosParaProveedor(
+  proveedor: string | null | undefined,
+  config: Pick<
+    ConfiguracionRentabilidad,
+    'costoEnvioPorPerfumeUSD' | 'costoFijoEnvioEmbalajeARS'
+  >,
+): { comisionUSD: number; envioAproximadoARS: number } {
+  if (esProveedorSinCostosAgregados(proveedor)) {
+    return { comisionUSD: 0, envioAproximadoARS: 0 }
+  }
+  const comisionUSD =
+    Number.isFinite(config.costoEnvioPorPerfumeUSD) &&
+    config.costoEnvioPorPerfumeUSD > 0
+      ? config.costoEnvioPorPerfumeUSD
+      : 0
+  const envioAproximadoARS =
+    Number.isFinite(config.costoFijoEnvioEmbalajeARS) &&
+    config.costoFijoEnvioEmbalajeARS > 0
+      ? config.costoFijoEnvioEmbalajeARS
+      : 0
+  return { comisionUSD, envioAproximadoARS }
+}
+
+/**
+ * Devuelve el recargo unitario total en ARS (comisión en USD + envío fijo en ARS)
+ * que se suma al precio de lista de un proveedor al compararlo.
+ */
+export function obtenerRecargoUnitarioARS(
+  proveedor: string | null | undefined,
+  config: Pick<
+    ConfiguracionRentabilidad,
+    'costoEnvioPorPerfumeUSD' | 'costoFijoEnvioEmbalajeARS'
+  >,
+  dolarDelDia: number,
+): number {
+  const { comisionUSD, envioAproximadoARS } =
+    obtenerCostosAgregadosParaProveedor(proveedor, config)
+  if (comisionUSD === 0 && envioAproximadoARS === 0) return 0
+  const cotizacionSegura =
+    Number.isFinite(dolarDelDia) && dolarDelDia > 0 ? dolarDelDia : 1400
+  return comisionUSD * cotizacionSegura + envioAproximadoARS
+}
+
+/**
  * Calcula en memoria el costo final por perfume sumando la comisión en USD
  * y el envío aproximado en ARS al precio base del proveedor.
  */
@@ -75,6 +133,7 @@ export function calcularCostoPerfume({
 
 export interface EntradaRentabilidadUnitaria {
   productoId?: number
+  proveedor?: string | null
   costoARS: number
   costoUSD?: number | null
   costoCalculado?: CalculoCostoPerfume | null
@@ -173,6 +232,7 @@ export function construirUrlFragrantica({
  */
 export function calcularRentabilidadUnitaria({
   productoId,
+  proveedor,
   costoARS,
   costoUSD,
   costoCalculado,
@@ -185,13 +245,16 @@ export function calcularRentabilidadUnitaria({
   const cotizacionSegura =
     Number.isFinite(dolarDelDia) && dolarDelDia > 0 ? dolarDelDia : 1400
 
+  const { comisionUSD, envioAproximadoARS } =
+    obtenerCostosAgregadosParaProveedor(proveedor, config)
+
   const resultadoCosto =
     costoCalculado ??
     calcularCostoPerfume({
       costoBaseARS: costoARS,
       costoBaseUSD: costoUSD,
-      comisionUSD: config.costoEnvioPorPerfumeUSD,
-      envioAproximadoARS: config.costoFijoEnvioEmbalajeARS,
+      comisionUSD,
+      envioAproximadoARS,
       dolarDelDia: cotizacionSegura,
     })
 

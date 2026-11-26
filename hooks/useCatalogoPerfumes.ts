@@ -1,7 +1,10 @@
 'use client'
 
 import { useMemo } from 'react'
-import { calcularRentabilidadUnitaria } from '@/lib/rentabilidad'
+import {
+  calcularRentabilidadUnitaria,
+  obtenerRecargoUnitarioARS,
+} from '@/lib/rentabilidad'
 import { CONFIG_RENTABILIDAD_INICIAL } from '@/store/useConfiguracionStore'
 import {
   esCategoriaPerfumeValida,
@@ -41,6 +44,7 @@ export interface OpcionesAgrupacionCatalogo {
   tiposPorMarca?: Record<string, TipoProducto>
   marcasEliminadas?: Record<string, string>
   proveedoresDesactivados?: string[]
+  configRentabilidad?: ConfiguracionRentabilidad
 }
 
 export interface ResultadoAgrupacionCatalogo {
@@ -173,6 +177,8 @@ function crearOfertaNormalizada(
 function seleccionarMejorOferta(
   ofertas: OfertaProveedor[],
   ml: number | null,
+  dolarDelDia: number,
+  configRentabilidad: ConfiguracionRentabilidad,
 ): Pick<
   ProductoComparado,
   | 'mejorPrecioARS'
@@ -193,6 +199,19 @@ function seleccionarMejorOferta(
   | 'mejorCostoPor100MlARS'
   | 'mejorCostoPor100MlUSD'
 > {
+  const cotizacionSegura = dolarDelDia > 0 ? dolarDelDia : 1400
+  const costoComparativoARS = (oferta: OfertaProveedor): number => {
+    if (oferta.precioBaseEnARS === null) return Number.POSITIVE_INFINITY
+    return (
+      oferta.precioBaseEnARS +
+      obtenerRecargoUnitarioARS(
+        oferta.proveedor,
+        configRentabilidad,
+        cotizacionSegura,
+      )
+    )
+  }
+
   const variaciones = ofertas
     .map((oferta) => oferta.variacionPorcentaje)
     .filter((v): v is number => v !== null && Number.isFinite(v))
@@ -204,44 +223,54 @@ function seleccionarMejorOferta(
 
   const disponiblesConPrecio = ofertas
     .filter((oferta) => oferta.disponible && oferta.precioBaseEnARS !== null)
-    .sort((a, b) => (a.precioBaseEnARS ?? Infinity) - (b.precioBaseEnARS ?? Infinity))
+    .sort((a, b) => costoComparativoARS(a) - costoComparativoARS(b))
 
   const todasConPrecio = ofertas
     .filter((oferta) => oferta.precioBaseEnARS !== null)
-    .sort((a, b) => (a.precioBaseEnARS ?? Infinity) - (b.precioBaseEnARS ?? Infinity))
+    .sort((a, b) => costoComparativoARS(a) - costoComparativoARS(b))
 
   if (disponiblesConPrecio.length > 0) {
     const ganadora = disponiblesConPrecio[0]
     const mejorARS = ganadora.precioBaseEnARS
     const mejorUSD = ganadora.precioBaseEnUSD
+    const mejorCostoFinalARS = costoComparativoARS(ganadora)
 
     const segundaOferta =
       disponiblesConPrecio[1] ??
       todasConPrecio.find(
         (oferta) =>
           oferta.proveedor !== ganadora.proveedor &&
-          (oferta.precioBaseEnARS ?? 0) >= (mejorARS ?? 0),
+          costoComparativoARS(oferta) >= mejorCostoFinalARS,
       )
 
     const segundoARS = segundaOferta?.precioBaseEnARS ?? null
     const segundoUSD = segundaOferta?.precioBaseEnUSD ?? null
+    const segundoCostoFinalARS = segundaOferta
+      ? costoComparativoARS(segundaOferta)
+      : null
 
     let brechaArbitrajePorcentaje: number | null = null
     let ahorroArbitrajeARS: number | null = null
     let ahorroArbitrajeUSD: number | null = null
 
     if (
-      mejorARS !== null &&
-      segundoARS !== null &&
-      segundoARS > 0 &&
-      segundoARS >= mejorARS
+      segundoCostoFinalARS !== null &&
+      Number.isFinite(mejorCostoFinalARS) &&
+      Number.isFinite(segundoCostoFinalARS) &&
+      segundoCostoFinalARS > 0 &&
+      segundoCostoFinalARS >= mejorCostoFinalARS
     ) {
-      ahorroArbitrajeARS = Number((segundoARS - mejorARS).toFixed(2))
-      if (mejorUSD !== null && segundoUSD !== null) {
-        ahorroArbitrajeUSD = Number((segundoUSD - mejorUSD).toFixed(4))
-      }
+      ahorroArbitrajeARS = Number(
+        (segundoCostoFinalARS - mejorCostoFinalARS).toFixed(2),
+      )
+      ahorroArbitrajeUSD = Number(
+        (ahorroArbitrajeARS / cotizacionSegura).toFixed(4),
+      )
       brechaArbitrajePorcentaje = Number(
-        (((segundoARS - mejorARS) / segundoARS) * 100).toFixed(1),
+        (
+          ((segundoCostoFinalARS - mejorCostoFinalARS) / segundoCostoFinalARS) *
+          100
+        ).toFixed(1),
       )
     }
 
@@ -335,6 +364,7 @@ export function agruparCatalogoPerfumes(
     tiposPorMarca,
     marcasEliminadas,
     proveedoresDesactivados,
+    configRentabilidad = CONFIG_RENTABILIDAD_INICIAL,
   } = opciones
 
   const conjuntoProveedores = new Set<string>()
@@ -451,6 +481,8 @@ export function agruparCatalogoPerfumes(
     const resumenGlobal = seleccionarMejorOferta(
       Object.values(producto.ofertas),
       producto.ml,
+      cotizacionSegura,
+      configRentabilidad,
     )
     listaProductos.push({
       ...producto,
@@ -671,6 +703,7 @@ export function filtrarYOrdenarCatalogo(
     }
     return calcularRentabilidadUnitaria({
       productoId: item.producto_id,
+      proveedor: item.proveedorMasBarato,
       costoARS: item.mejorPrecioARS,
       costoUSD: item.mejorPrecioUSD,
       ml: item.ml,
@@ -681,6 +714,21 @@ export function filtrarYOrdenarCatalogo(
     }).gananciaNetaARS
   }
 
+  const costoFinalComparableARS = (item: ProductoComparado): number | null => {
+    if (item.mejorPrecioARS === null) return null
+    const proveedorRef = esModoGlobal
+      ? item.proveedorMasBarato
+      : filtros.pestanaActiva
+    return (
+      item.mejorPrecioARS +
+      obtenerRecargoUnitarioARS(
+        proveedorRef,
+        configRentabilidad,
+        cotizacionSegura,
+      )
+    )
+  }
+
   candidatos.sort((a, b) => {
     switch (filtros.ordenarPor) {
       case 'precio_asc': {
@@ -688,15 +736,15 @@ export function filtrarYOrdenarCatalogo(
         if (a.tieneStockDisponible !== b.tieneStockDisponible) {
           return a.tieneStockDisponible ? -1 : 1
         }
-        const precioA = a.mejorPrecioARS ?? Number.POSITIVE_INFINITY
-        const precioB = b.mejorPrecioARS ?? Number.POSITIVE_INFINITY
+        const precioA = costoFinalComparableARS(a) ?? Number.POSITIVE_INFINITY
+        const precioB = costoFinalComparableARS(b) ?? Number.POSITIVE_INFINITY
         if (precioA !== precioB) return precioA - precioB
         return a.nombre.localeCompare(b.nombre, 'es-AR')
       }
 
       case 'precio_desc': {
-        const precioA = a.mejorPrecioARS ?? -1
-        const precioB = b.mejorPrecioARS ?? -1
+        const precioA = costoFinalComparableARS(a) ?? -1
+        const precioB = costoFinalComparableARS(b) ?? -1
         if (precioA !== precioB) return precioB - precioA
         return a.nombre.localeCompare(b.nombre, 'es-AR')
       }
@@ -786,6 +834,7 @@ export function useCatalogoPerfumes(
         tiposPorMarca,
         marcasEliminadas,
         proveedoresDesactivados,
+        configRentabilidad,
       }),
     [
       filasCrudas,
@@ -796,6 +845,8 @@ export function useCatalogoPerfumes(
       tiposPorMarca,
       marcasEliminadas,
       proveedoresDesactivados,
+      configRentabilidad.costoEnvioPorPerfumeUSD,
+      configRentabilidad.costoFijoEnvioEmbalajeARS,
     ],
   )
 

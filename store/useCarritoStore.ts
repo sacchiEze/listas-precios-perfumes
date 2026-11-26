@@ -2,7 +2,9 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { esProveedorSinCostosAgregados } from '@/lib/rentabilidad'
 import type {
+  DesgloseGastosCarrito,
   EtiquetaEscalaAplicada,
   ItemCarrito,
   ItemCarritoCalculado,
@@ -12,6 +14,8 @@ import type {
   ResumenProveedorCarrito,
 } from '@/types/perfumeria'
 
+export const COSTO_PASERO_POR_DEFECTO_ARS = 4000
+
 /** Datos requeridos para agregar o sumar un perfume al carrito */
 export type EntradaAgregarCarrito = Omit<ItemCarrito, 'cantidad'> & {
   cantidad?: number
@@ -20,6 +24,10 @@ export type EntradaAgregarCarrito = Omit<ItemCarrito, 'cantidad'> & {
 interface EstadoCarrito {
   items: ItemCarrito[]
   escalaForzadaPorProveedor: Record<string, ModoEscalaMayorista>
+  costoPaseroPorPerfume: number
+  monedaPasero: Moneda
+  costoEnvioPedido: number
+  monedaEnvioPedido: Moneda
   agregarItem: (entrada: EntradaAgregarCarrito) => void
   quitarItem: (productoId: number, proveedor: string) => void
   actualizarCantidad: (productoId: number, proveedor: string, cantidad: number) => void
@@ -28,6 +36,10 @@ interface EstadoCarrito {
   vaciarProveedor: (proveedor: string) => void
   reemplazarItemsCarrito: (nuevosItems: ItemCarrito[]) => void
   setEscalaProveedor: (proveedor: string, modo: ModoEscalaMayorista) => void
+  setCostoPaseroPorPerfume: (valor: number) => void
+  setMonedaPasero: (moneda: Moneda) => void
+  setCostoEnvioPedido: (valor: number) => void
+  setMonedaEnvioPedido: (moneda: Moneda) => void
   sincronizarPreciosDesdeCatalogo: (productos: ProductoComparado[]) => void
   obtenerResumenPorProveedor: (
     proveedor: string,
@@ -182,6 +194,137 @@ export function calcularResumenesPorProveedor(
   return resumenes
 }
 
+export interface EntradaDesgloseGastosCarrito {
+  resumenes: ResumenProveedorCarrito[]
+  costoPaseroPorPerfume: number
+  monedaPasero: Moneda
+  costoEnvioPedido: number
+  monedaEnvioPedido: Moneda
+  dolarDelDia: number
+}
+
+/**
+ * Calcula por separado los tres gastos principales del pedido en el carrito:
+ * 1) Total a pagar a la(s) tienda(s)
+ * 2) Total a pagar al pasero (por unidad, excluyendo proveedores sin pasero como Supa)
+ * 3) Costo total del envío del pedido
+ * junto con los totales equivalentes en ARS/USD y el prorrateo unitario.
+ */
+export function calcularDesgloseGastosCarrito({
+  resumenes,
+  costoPaseroPorPerfume,
+  monedaPasero,
+  costoEnvioPedido,
+  monedaEnvioPedido,
+  dolarDelDia,
+}: EntradaDesgloseGastosCarrito): DesgloseGastosCarrito {
+  const cotizacionSegura =
+    Number.isFinite(dolarDelDia) && dolarDelDia > 0 ? dolarDelDia : 1400
+
+  let totalUnidades = 0
+  let unidadesConPasero = 0
+  let unidadesSinPasero = 0
+  let totalTiendaARS = 0
+  let totalTiendaUSD = 0
+  const monedasTiendas = new Set<Moneda>()
+  let sumaTiendaOrigen = 0
+
+  for (const r of resumenes) {
+    totalUnidades += r.totalUnidades
+    if (esProveedorSinCostosAgregados(r.proveedor)) {
+      unidadesSinPasero += r.totalUnidades
+    } else {
+      unidadesConPasero += r.totalUnidades
+    }
+    totalTiendaARS += r.totalEnARS
+    totalTiendaUSD += r.totalEnUSD
+    monedasTiendas.add(r.monedaOrigen)
+    sumaTiendaOrigen += r.totalEnMonedaOrigen
+  }
+
+  const monedaTiendaUnificada =
+    monedasTiendas.size === 1 ? Array.from(monedasTiendas)[0] : null
+  const totalTiendaOrigen =
+    monedaTiendaUnificada !== null ? sumaTiendaOrigen : null
+
+  const costoPaseroUnitarioOrigen =
+    Number.isFinite(costoPaseroPorPerfume) && costoPaseroPorPerfume > 0
+      ? costoPaseroPorPerfume
+      : 0
+
+  const costoPaseroUnitarioARS =
+    monedaPasero === 'ARS'
+      ? costoPaseroUnitarioOrigen
+      : costoPaseroUnitarioOrigen * cotizacionSegura
+  const costoPaseroUnitarioUSD =
+    monedaPasero === 'USD'
+      ? costoPaseroUnitarioOrigen
+      : costoPaseroUnitarioOrigen / cotizacionSegura
+
+  const totalPaseroOrigen = costoPaseroUnitarioOrigen * unidadesConPasero
+  const totalPaseroARS = costoPaseroUnitarioARS * unidadesConPasero
+  const totalPaseroUSD = costoPaseroUnitarioUSD * unidadesConPasero
+
+  const costoEnvioPedidoOrigen =
+    Number.isFinite(costoEnvioPedido) && costoEnvioPedido > 0
+      ? costoEnvioPedido
+      : 0
+
+  const totalEnvioARS =
+    monedaEnvioPedido === 'ARS'
+      ? costoEnvioPedidoOrigen
+      : costoEnvioPedidoOrigen * cotizacionSegura
+  const totalEnvioUSD =
+    monedaEnvioPedido === 'USD'
+      ? costoEnvioPedidoOrigen
+      : costoEnvioPedidoOrigen / cotizacionSegura
+
+  const unidadesProrrateoEnvio =
+    unidadesConPasero > 0 ? unidadesConPasero : totalUnidades
+  const envioUnitarioProrrateadoARS =
+    unidadesProrrateoEnvio > 0 ? totalEnvioARS / unidadesProrrateoEnvio : 0
+  const envioUnitarioProrrateadoUSD =
+    unidadesProrrateoEnvio > 0 ? totalEnvioUSD / unidadesProrrateoEnvio : 0
+
+  const totalGeneralConGastosARS =
+    totalTiendaARS + totalPaseroARS + totalEnvioARS
+  const totalGeneralConGastosUSD =
+    totalTiendaUSD + totalPaseroUSD + totalEnvioUSD
+
+  const costoPromedioFinalUnitarioARS =
+    totalUnidades > 0 ? totalGeneralConGastosARS / totalUnidades : 0
+  const costoPromedioFinalUnitarioUSD =
+    totalUnidades > 0 ? totalGeneralConGastosUSD / totalUnidades : 0
+
+  return {
+    totalUnidades,
+    unidadesConPasero,
+    unidadesSinPasero,
+    monedaTiendaUnificada,
+    totalTiendaOrigen,
+    totalTiendaARS,
+    totalTiendaUSD,
+    costoPaseroUnitarioOrigen,
+    monedaPasero,
+    costoPaseroUnitarioARS,
+    costoPaseroUnitarioUSD,
+    totalPaseroOrigen,
+    totalPaseroARS,
+    totalPaseroUSD,
+    costoEnvioPedidoOrigen,
+    monedaEnvioPedido,
+    totalEnvioARS,
+    totalEnvioUSD,
+    unidadesProrrateoEnvio,
+    envioUnitarioProrrateadoARS,
+    envioUnitarioProrrateadoUSD,
+    totalGeneralConGastosARS,
+    totalGeneralConGastosUSD,
+    costoPromedioFinalUnitarioARS,
+    costoPromedioFinalUnitarioUSD,
+  }
+}
+
 function formatearMontoWhatsApp(valor: number, moneda: Moneda): string {
   if (moneda === 'USD') {
     return `USD ${valor.toFixed(2)}`
@@ -239,6 +382,10 @@ export const useCarritoStore = create<EstadoCarrito>()(
     (set, get) => ({
       items: [],
       escalaForzadaPorProveedor: {},
+      costoPaseroPorPerfume: COSTO_PASERO_POR_DEFECTO_ARS,
+      monedaPasero: 'ARS',
+      costoEnvioPedido: 0,
+      monedaEnvioPedido: 'ARS',
 
       agregarItem: (entrada: EntradaAgregarCarrito) => {
         const cantidadAAgregar = Math.max(1, Math.floor(entrada.cantidad ?? 1))
@@ -319,7 +466,11 @@ export const useCarritoStore = create<EstadoCarrito>()(
       },
 
       vaciarCarrito: () => {
-        set({ items: [], escalaForzadaPorProveedor: {} })
+        set({
+          items: [],
+          escalaForzadaPorProveedor: {},
+          costoEnvioPedido: 0,
+        })
       },
 
       vaciarProveedor: (proveedor: string) => {
@@ -346,6 +497,28 @@ export const useCarritoStore = create<EstadoCarrito>()(
             [proveedor]: modo,
           },
         }))
+      },
+
+      setCostoPaseroPorPerfume: (valor: number) => {
+        const normalizado =
+          Number.isFinite(valor) && valor >= 0 ? Number(valor.toFixed(2)) : 0
+        set({ costoPaseroPorPerfume: normalizado })
+      },
+
+      setMonedaPasero: (moneda: Moneda) => {
+        if (moneda !== 'ARS' && moneda !== 'USD') return
+        set({ monedaPasero: moneda })
+      },
+
+      setCostoEnvioPedido: (valor: number) => {
+        const normalizado =
+          Number.isFinite(valor) && valor >= 0 ? Number(valor.toFixed(2)) : 0
+        set({ costoEnvioPedido: normalizado })
+      },
+
+      setMonedaEnvioPedido: (moneda: Moneda) => {
+        if (moneda !== 'ARS' && moneda !== 'USD') return
+        set({ monedaEnvioPedido: moneda })
       },
 
       sincronizarPreciosDesdeCatalogo: (productos: ProductoComparado[]) => {
@@ -408,6 +581,42 @@ export const useCarritoStore = create<EstadoCarrito>()(
     }),
     {
       name: 'perfumeria-carrito-storage',
+      merge: (persistedState, currentState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return currentState
+        }
+        const p = persistedState as Partial<EstadoCarrito>
+        return {
+          ...currentState,
+          ...p,
+          items: Array.isArray(p.items) ? p.items : currentState.items,
+          escalaForzadaPorProveedor:
+            p.escalaForzadaPorProveedor &&
+            typeof p.escalaForzadaPorProveedor === 'object'
+              ? p.escalaForzadaPorProveedor
+              : currentState.escalaForzadaPorProveedor,
+          costoPaseroPorPerfume:
+            typeof p.costoPaseroPorPerfume === 'number' &&
+            Number.isFinite(p.costoPaseroPorPerfume) &&
+            p.costoPaseroPorPerfume >= 0
+              ? p.costoPaseroPorPerfume
+              : currentState.costoPaseroPorPerfume,
+          monedaPasero:
+            p.monedaPasero === 'ARS' || p.monedaPasero === 'USD'
+              ? p.monedaPasero
+              : currentState.monedaPasero,
+          costoEnvioPedido:
+            typeof p.costoEnvioPedido === 'number' &&
+            Number.isFinite(p.costoEnvioPedido) &&
+            p.costoEnvioPedido >= 0
+              ? p.costoEnvioPedido
+              : currentState.costoEnvioPedido,
+          monedaEnvioPedido:
+            p.monedaEnvioPedido === 'ARS' || p.monedaEnvioPedido === 'USD'
+              ? p.monedaEnvioPedido
+              : currentState.monedaEnvioPedido,
+        }
+      },
     },
   ),
 )
